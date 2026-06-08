@@ -1,0 +1,16 @@
+{
+  "name": "AF.UI",
+  "rootNamespace": "AF.UI",
+  "references": [
+    "AF.Core"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

@@ -1,0 +1,10 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <Style src="../USS/TitleScreen.uss" />
+    <ui:VisualElement name="TitleScreenRoot" class="title-screen">
+        <ui:Label name="GameTitle" text="Rogue" class="title-screen__heading" />
+        <ui:VisualElement class="title-screen__menu">
+            <ui:Button name="NewRunButton" text="New Run" class="title-screen__button" tabindex="1" focusable="true" />
+            <ui:Button name="QuitButton" text="Quit" class="title-screen__button" tabindex="2" focusable="true" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>
