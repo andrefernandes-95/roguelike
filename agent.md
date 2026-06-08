@@ -1,0 +1,536 @@
+# Rogue — Agent & Architecture Rules
+
+> Soulslike combat + roguelike runs. **Indie game jam scope.**
+> Reference project: `Cacildes Adventure 2` (inspiration only — do not copy structure wholesale).
+> Unity **6000.3**, URP, **New Input System**, **UI Toolkit**, 3rd-person camera + lock-on.
+
+---
+
+## 1. Mission
+
+Build a **playable jam game**, not a platform for every future feature.
+
+Every file, class, and system must earn its place in a **1–2 week** scope. When in doubt, cut scope and keep the code dumb.
+
+---
+
+## 2. Code delivery (mandatory)
+
+**The user writes all game code.** Agents do not create or edit `.cs`, `.uxml`, `.uss`, `.asmdef`, or other source assets unless the user explicitly asks otherwise.
+
+### What agents deliver
+
+Every implementation task is delivered as a **markdown file** in `docs/code/`:
+
+```
+docs/code/
+├── core-bootstrap.md
+├── player-motor.md
+└── ...
+```
+
+Each delivery file must include:
+
+1. **Goal** — one paragraph, what this adds and why
+2. **Files to create** — full paths under `Assets/_Project/`
+3. **Full file contents** — copy-paste ready code blocks, one block per file, labeled with the target path
+4. **Unity setup steps** — Inspector wiring, scene objects, play-mode verification
+5. **Checklist** — compile, play, keyboard/gamepad (if UI)
+
+### Format template
+
+```markdown
+# Feature name
+
+## Goal
+...
+
+## Files
+
+### `Assets/_Project/Core/Runtime/Example.cs`
+\`\`\`csharp
+// full file
+\`\`\`
+
+## Unity setup
+1. ...
+
+## Verify
+- [ ] Compiles
+- [ ] ...
+```
+
+### Agent rules
+
+| Do | Don't |
+|----|-------|
+| Write `docs/code/*.md` | Write `Assets/**/*.cs` (unless user explicitly requests) |
+| Give complete files in fenced blocks | Give partial snippets with `// ... rest` |
+| State which package/asmdef is touched | Silently add dependencies |
+| One delivery file per feature slice | Split across chat-only code with no file |
+
+### User workflow
+
+1. Read the delivery `.md`
+2. Create files manually in Unity / IDE
+3. Ask for the next delivery `.md` when ready
+
+---
+
+## 3. Code philosophy
+
+Write for your **dumber future self** at 2 AM before a build.
+
+| Do | Don't |
+|----|-------|
+| Short files, one job | God classes (`PlayerManager`, `SaveManager`, `GameManager`) |
+| Composition (components) | Deep inheritance trees (`CharacterBaseManager` → `PlayerManager` → …) |
+| Plain C# for rules & state | Business logic in `Update()` |
+| Explicit data flow | Global string events (`EventManager` + `ON_*` constants) |
+| Serialize references in the Inspector | `FindObjectOfType` / `FindAnyObjectByType` at runtime |
+| Copy patterns that worked in Cacildes (`DungeonLayoutSolver`) | Copy patterns that rotted (40-field managers, 700-line saves) |
+
+**The dumb code test:** If you cannot explain what a class does in one sentence without "and also", split it.
+
+**The jam test:** If a system is not needed for **boot → new run → fight → die or win → meta reward → repeat**, it does not get built yet.
+
+---
+
+## 4. Lessons from Cacildes (read before writing code)
+
+### Keep (proven value)
+
+- **`DungeonLayoutSolver`** — pure C# layout logic; Unity adapter (`DungeonGenerator`) only instantiates results. **This is the template for every feature.**
+- **UI Toolkit** — `UIDocument` + UXML for menus; keyboard/gamepad via focusable elements.
+- **Lock-on + third-person camera** — separate concerns; lock-on swaps camera/strafe mode, does not own combat math.
+- **`PlayerComponentManager` idea** — enable/disable control groups — but implement as a thin **control gate**, not a second god object.
+- **ScriptableObjects for config** — weapons, room categories, loot tables, game tuning.
+
+### Reject (why it became unmaintainable)
+
+- **`PlayerManager` / `CharacterBaseManager`** — dozens of public `[SerializeField]` cross-refs; `ResetStates()` calls 20+ subsystems.
+- **`SaveManager`** — knows every database, player, quest, bonfire, fade, notification; 700+ lines.
+- **`Game` ScriptableObject** — player cosmetics, world flags, roguelike toggle, equipment defaults in one asset.
+- **TigerForge `EventManager`** — stringly-typed broadcast; impossible to trace who listens.
+- **Roguelike bolted onto soulslike** — `isRoguelike` flag on `Game` instead of a first-class run lifecycle.
+- **Namespace `AF`** — monolith; no assembly boundaries.
+
+---
+
+## 5. Project layout
+
+All game code lives under `Assets/_Project/`.
+
+```
+Assets/_Project/
+├── Core/                 # Session, run lifecycle, scene flow, bootstrap, shared interfaces
+├── Player/               # Player entity, motor, camera, lock-on, input routing (not combat math)
+├── Combat/               # Hitboxes, damage pipeline, poise, abilities execution
+├── Stats/                # Stat definitions, modifiers, resource pools (HP, stamina)
+├── AI/                   # Enemy behaviour, perception, state machines
+├── Dungeon/              # Procedural layout solver + room spawning adapter
+├── Loot/                 # Drops, chests, run-scoped inventory
+├── Meta/                 # Persistent unlocks between runs (jam-minimal)
+├── UI/                   # UXML, USS, UIDocument presenters
+└── Editor/               # Inspectors, debug tools (Editor asmdef only)
+```
+
+Each feature folder has:
+
+```
+Feature/
+├── Runtime/              # Runtime .cs + Feature.Runtime.asmdef
+├── Editor/               # (optional) Editor-only code
+└── Data/                 # (optional) ScriptableObject assets
+```
+
+### Assembly dependency rules (strict)
+
+```
+Core          →  (Unity, Input System only)
+Stats         →  Core
+Combat        →  Stats, Core
+AI            →  Combat, Stats, Core
+Player        →  Core, Stats, Input System
+Dungeon       →  Core
+Loot          →  Stats, Core
+Meta          →  Core
+UI            →  Core (+ feature interfaces via events/callbacks, not concrete types)
+Editor        →  everything (editor only)
+```
+
+**Never:** `Core` → `Combat` / `AI` / `UI`.
+**Never:** circular asmdefs.
+
+If `Core` needs to react to combat, define an **interface or struct event** in `Core`, implemented or raised from `Combat`.
+
+---
+
+## 6. Layer model
+
+Every feature follows three layers:
+
+```
+┌─────────────────────────────────────────┐
+│  Adapter (MonoBehaviour)                │  Unity life cycle, Inspector, physics, animation
+│  — reads input, writes transforms       │
+├─────────────────────────────────────────┤
+│  Controller / Coordinator               │  Glues adapters; still no Unity APIs if avoidable
+├─────────────────────────────────────────┤
+│  Logic (plain C#)                       │  State machines, solvers, damage math — unit-testable
+├─────────────────────────────────────────┤
+│  Data (SO / structs)                    │  Tunable, designer-facing
+└─────────────────────────────────────────┘
+```
+
+### MonoBehaviour rules
+
+MonoBehaviours are **adapters only**:
+
+- Read input / collision / animation events
+- Pass data into plain C# logic
+- Apply results back to `Transform`, `Animator`, `CharacterController`
+- **No** damage formulas, AI decisions, or run state transitions inside `Update()` unless trivial glue (1–3 lines)
+
+Max **~150 lines** per MonoBehaviour. Split or extract logic if larger.
+
+### Plain C# rules
+
+- No `MonoBehaviour`, `GameObject`, `Transform` in logic classes
+- Constructor-inject dependencies; use `struct` for snapshots (`RunState`, `DamageResult`, `StatSheet`)
+- State machines are `enum` + `switch` or small classes — **no** animator-style hierarchy for game state
+
+---
+
+## 7. Core package (build first)
+
+`Core` owns the **run lifecycle** — the roguelike spine.
+
+### Run state machine (canonical)
+
+```
+Boot → MainMenu → RunStarting → FloorActive ↔ Encounter → (FloorCleared | PlayerDead) → RunEnded → MetaApply → MainMenu
+```
+
+Implement as plain C# `RunStateMachine`. One MonoBehaviour adapter (`RunCoordinator`) ticks it and loads scenes.
+
+### Core types (initial)
+
+| Type | Responsibility |
+|------|----------------|
+| `RunStateMachine` | States, transitions, run seed, floor index |
+| `RunConfig` / `RunSession` (SO or struct) | Per-run data: seed, difficulty, elapsed time |
+| `MetaProfile` (plain C# + save adapter) | Persistent unlocks (jam: 1 currency, 3 upgrades max) |
+| `ISceneFlow` | Load/unload dungeon, menu, bootstrap |
+| `IPlayerSpawn` | Interface only — implementation in `Player` |
+| `GameBootstrap` | Entry point; wires refs from Inspector |
+
+### Core does NOT own
+
+- Damage, poise, hitboxes → `Combat`
+- Stat formulas → `Stats`
+- Enemy decisions → `AI`
+- Room geometry / spawning → `Dungeon`
+- HUD layout → `UI`
+
+---
+
+## 8. Player package
+
+Player is an **entity composition**, not a manager megaclass.
+
+```
+PlayerEntity (root GameObject)
+├── PlayerInputAdapter        # Input System → intent struct
+├── PlayerMotor               # CharacterController movement
+├── PlayerCameraRig           # 3rd person follow
+├── PlayerLockOn              # target selection, camera mode switch
+├── PlayerControlGate         # enable/disable control groups (menu, cutscene, death)
+└── PlayerView                # Animator parameter driver
+```
+
+**`PlayerIntent` struct** (plain data):
+
+```csharp
+public struct PlayerIntent
+{
+    public Vector2 Move;
+    public Vector2 Look;
+    public bool Dodge;
+    public bool LightAttack;
+    public bool LockOn;
+    public bool LockOnSwitch;
+    // jam scope: keep this list short
+}
+```
+
+Combat reads `PlayerIntent` from an interface (`IPlayerIntentSource`) defined in `Core` or `Combat`, implemented in `Player`.
+
+**Do not** reference `PlayerCombatController`, `PlayerDodgeController`, etc. from a single `PlayerManager` — each is its own component; coordination goes through intent + events.
+
+---
+
+## 9. Combat & Stats (stub until Core + Player move)
+
+- **`Stats`**: `StatSheet`, `StatModifier`, resource pools. Pure math.
+- **`Combat`**: `DamageRequest` → `DamageResolver` → `DamageResult`. Adapters apply results to health components.
+- Weapons/abilities are **data** (ScriptableObject) + **executor** (plain C#), not 800-line controllers.
+
+Jam scope combat verbs: **move, dodge, light attack, block** — add heavy/spell only if time remains.
+
+---
+
+## 10. Dungeon (port pattern from Cacildes)
+
+1. `DungeonLayoutSolver` (pure C#) — already proven in Cacildes; port and simplify.
+2. `DungeonGenerator` (MonoBehaviour) — reads seed from `RunSession`, calls solver, instantiates prefabs.
+3. `LogicalRoom` / `PlacedRoom` — no `GameObject` in solver.
+
+**Room constraints for camera + lock-on:**
+
+- Minimum floor size per room category (document in SO tooltip)
+- Doorways must face connectable axes
+- Boss rooms are authored categories, not random soup
+
+---
+
+## 11. Input System
+
+- One `InputActionAsset` per project: `PlayerInputActions.inputactions`
+- Generate C# class; wrap in `PlayerInputAdapter`
+- **Action maps:** `Gameplay`, `UI`, `Menu`
+- Switch maps when `RunStateMachine` enters menu / gameplay / death screen
+- No legacy `UnityEngine.Input` — ever
+- Rebind UI is **out of jam scope** unless literally free
+
+---
+
+## 12. UI Toolkit
+
+### Structure
+
+```
+UI/
+├── UXML/           # Layout only
+├── USS/            # Styles only
+└── Presenters/     # MonoBehaviour or plain C# that binds data → VisualElement
+```
+
+### Accessibility (mandatory)
+
+Every interactive screen must work with **keyboard + gamepad** without mouse:
+
+- Use `Button`, `Toggle`, `TextField` — not `Clickable` div hacks
+- Set `focusable="true"` and verify `NavigationMoveEvent` works
+- Define explicit `tabIndex` order on menus (title → new run → quit)
+- **`PanelSettings`**: assign default navigation event handler
+- On show: `root.Q<Button>("StartButton")?.Focus()` in presenter
+- Never require hover-only interactions
+
+### Combat HUD
+
+- UITK for bars (HP, stamina), menus, run summary
+- Lock-on reticle: world-space or `VisualElement` overlay — pick one, document in `PlayerLockOn`
+- Do not split HUD across 5 UIDocuments like Cacildes HUD v2 + alert + wheel — **one gameplay HUD document** for jam
+
+### Presenter pattern
+
+```csharp
+// Presenter reads from plain C# view-model or struct — not PlayerManager
+public sealed class RunSummaryPresenter : MonoBehaviour
+{
+    public void Show(RunSummary summary) { /* bind labels */ }
+}
+```
+
+---
+
+## 13. Messaging (replace EventManager)
+
+**No global string events.**
+
+Allowed:
+
+1. **C# event** on a narrow owner: `health.OnDied += ...`
+2. **Interface callback** injected at bootstrap: `IRunEvents.OnPlayerDied()`
+3. **`ScriptableObject` channel** (jam-friendly): `GameEventChannel` with `Raise()` / `Register` — typed, one concern per asset
+
+```csharp
+// Core/Runtime/Events/GameEventChannel.cs
+public sealed class GameEventChannel : ScriptableObject
+{
+    public event Action Raised;
+    public void Raise() => Raised?.Invoke();
+}
+```
+
+Forbidden:
+
+- `EventManager.StartListening("ON_CHARACTER_KILLED", ...)`
+- Static singletons for cross-feature chatter
+
+---
+
+## 14. Data & persistence
+
+### ScriptableObjects
+
+- **Config** (designer tuning): `WeaponData`, `RoomCategory`, `EnemyData`
+- **Channels**: `GameEventChannel`
+- **Not** mutable runtime state — runtime state lives in plain C# objects
+
+### Save (jam scope)
+
+- `MetaProfile` only between runs (unlocks + best run stats)
+- **No** mid-run save — roguelike contract
+- One `MetaSaveAdapter` MonoBehaviour — not a second `SaveManager` god file
+- Use `Application.persistentDataPath` + JSON (`JsonUtility` or simple custom) — no third-party save asset for jam unless already in project
+
+---
+
+## 15. Naming & style
+
+| Item | Convention |
+|------|------------|
+| Namespace | `Rogue.Core`, `Rogue.Combat`, `Rogue.Dungeon`, … |
+| MonoBehaviour adapters | `*Adapter`, `*Presenter`, `*View`, `*Gate`, `*Rig` |
+| Plain C# logic | `*Resolver`, `*Solver`, `*Machine`, `*Sheet` |
+| ScriptableObjects | `*Data`, `*Config`, `*Definition` |
+| Interfaces | `I*` prefix, live in lowest assembly that needs them |
+| Fields | `_camelCase` private, `PascalCase` public properties |
+| SerializeField | `[SerializeField] Type _name` — no public fields for Inspector |
+
+- **Files:** one primary type per file; file name = type name
+- **Usings:** remove unused; no `using Input = UnityEngine.Input` hacks
+- **Comments:** only non-obvious invariants ("jam: hardcoded to 3 floors")
+- **Async:** coroutines for jam; no `async/await` unless file already uses it
+
+---
+
+## 16. Testing
+
+- **Edit Mode tests** for every plain C# solver/state machine (`DungeonLayoutSolver`, `RunStateMachine`, `DamageResolver`)
+- Tests live in `Assets/_Project/Tests/EditMode/` with `Rogue.Tests.EditMode.asmdef`
+- No Play Mode tests for jam unless verifying a critical integration
+- Copy approach from Cacildes `EditMode_Tests/DungeonGeneratorTests.cs` — test solver, not instantiated prefabs
+
+---
+
+## 17. Third-party & Unity packages
+
+**Approved for jam:**
+
+- Unity Input System (required)
+- UI Toolkit (required)
+- Cinemachine or Unity 6 camera rig for 3rd person
+- AI Navigation (enemies)
+- URP (already in project)
+
+**Ask before adding:**
+
+- Any new package from Package Manager
+- DOTween, Odin, TigerForge, QuickSave, etc.
+
+**Default:** solve with standard library + small custom code.
+
+---
+
+## 18. Agent workflow (Cursor / AI)
+
+When implementing a task:
+
+1. **Read this file** — especially §2 Code delivery
+2. **Write `docs/code/<feature>.md`** — full copy-paste files, setup steps, checklist. **Do not** write source files in `Assets/` unless the user explicitly asks
+3. **Identify which package owns the work** and note asmdef impact in the delivery file
+4. **Prefer plain C# classes** over new MonoBehaviours (document both in the `.md`)
+5. **Port from Cacildes** only after stating what you are simplifying
+6. **Do not** design managers with more than **5** serialized dependencies
+7. **Do not** add features outside jam loop (quests, companions, day/night, reputation, crafting)
+8. **Include UXML/USS** in the delivery `.md` when adding screens (keyboard + gamepad focus order documented)
+9. **One delivery file per slice** — e.g. `core-bootstrap.md`, not a monolith
+
+### Definition of done (per delivery `.md`)
+
+- [ ] Every new file has a labeled path and complete contents
+- [ ] Unity setup steps are explicit (GameObjects, Inspector fields, scenes)
+- [ ] Asmdef dependency direction documented if references change
+- [ ] No `Find*` in runtime code
+- [ ] Logic classes have no `UnityEngine` dependency (or exception is explained)
+- [ ] Verify checklist included for the user
+
+---
+
+## 19. Jam scope lock (do not expand without explicit user approval)
+
+**In scope:**
+
+- Title menu → start run
+- Procedural floor (1 biome, 1 boss at end)
+- 3rd person move + dodge + light attack + block
+- Lock-on (single target, switch left/right)
+- 2–3 enemy types
+- Run loot (weapon + consumable)
+- Death → meta currency → 2–3 permanent upgrades
+- Run summary screen
+
+**Out of scope (v1):**
+
+- Character customization
+- Quests, NPCs, dialogue
+- Bonfires / mid-run checkpoints
+- Rebindable controls
+- Full inventory UI (use simple pickup slots)
+- Swimming, climbing, stealth, bows, spells, executions, companions
+- Save anywhere
+- Localization
+
+---
+
+## 20. Quick reference — file templates
+
+### Plain C# state machine
+
+```csharp
+namespace Rogue.Core
+{
+    public enum RunState { Boot, MainMenu, RunStarting, FloorActive, Encounter, FloorCleared, PlayerDead, RunEnded }
+
+    public sealed class RunStateMachine
+    {
+        public RunState State { get; private set; }
+        public bool TryTransition(RunState next) { /* validate + set */ }
+    }
+}
+```
+
+### MonoBehaviour adapter (thin)
+
+```csharp
+namespace Rogue.Core
+{
+    public sealed class RunCoordinator : MonoBehaviour
+    {
+        [SerializeField] RunConfig _config;
+        RunStateMachine _machine = new();
+
+        void Update() { /* read frame dt, tick machine, switch scenes on transition */ }
+    }
+}
+```
+
+---
+
+## 21. Glossary
+
+| Term | Meaning |
+|------|---------|
+| **Run** | One attempt from `RunStarting` to `RunEnded` (death or victory) |
+| **Floor** | One procedural dungeon layer within a run |
+| **Meta** | Persistent progress between runs |
+| **Adapter** | MonoBehaviour that connects Unity to plain C# |
+| **Intent** | Frame input snapshot consumed by gameplay systems |
+| **Control gate** | Enables/disables player adapters (menu, stun, death) |
+
+---
+
+*Last updated: code delivery rule (§2). Amend this file when architecture decisions change — agents must follow the latest version.*
