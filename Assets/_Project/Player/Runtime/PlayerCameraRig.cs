@@ -26,10 +26,22 @@ namespace AF.Player
             }
 
             Vector2 look = input.Intent.Look;
+
+            if (look.sqrMagnitude < 0.0001f)
+            {
+                ApplyTransform();
+                return;
+            }
+
             yaw += look.x * lookSensitivity;
             pitch -= look.y * lookSensitivity;
             pitch = Mathf.Clamp(pitch, minPitch, maxPitch);
 
+            ApplyTransform();
+        }
+
+        void ApplyTransform()
+        {
             Quaternion rotation = Quaternion.Euler(pitch, yaw, 0f);
             Vector3 offset = rotation * new Vector3(0f, height, -distance);
             Vector3 focus = target.position + Vector3.up * 1.5f;

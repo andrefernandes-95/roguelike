@@ -12,7 +12,7 @@ namespace AF.Player
         CharacterController controller;
         PlayerInputAdapter input;
         float verticalVelocity;
-        bool isEnabled = true;
+        bool isEnabled = false;
 
         void Awake()
         {

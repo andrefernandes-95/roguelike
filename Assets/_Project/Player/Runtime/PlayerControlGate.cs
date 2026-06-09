@@ -10,11 +10,11 @@ namespace AF.Player
         [SerializeField] PlayerCameraRig cameraRig;
 
         RunCoordinator runCoordinator;
-        RunState lastState;
+        RunState lastState = RunState.Boot;
 
-        void Awake()
+        void Start()
         {
-            runCoordinator = RunCoordinator.Instance;
+            ApplyState(GetCoordinator()?.State ?? RunState.Boot);
         }
 
         void Update()
@@ -25,19 +25,31 @@ namespace AF.Player
             }
 
             RunState state = runCoordinator.State;
-            if (state == lastState)
+            if (state != lastState)
             {
-                return;
+                ApplyState(state);
             }
+        }
 
+        void ApplyState(RunState state)
+        {
             lastState = state;
+
             bool gameplay = state == RunState.FloorActive;
             input.SetInputEnabled(gameplay);
             motor.SetMotorEnabled(gameplay);
             cameraRig.SetCameraEnabled(gameplay);
 
-            Cursor.lockState = gameplay ? CursorLockMode.Locked : CursorLockMode.None;
-            Cursor.visible = !gameplay;
+            if (!gameplay)
+            {
+                Cursor.lockState = CursorLockMode.None;
+                Cursor.visible = true;
+            }
+        }
+
+        static RunCoordinator GetCoordinator()
+        {
+            return RunCoordinator.Instance;
         }
     }
 }
