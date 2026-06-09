@@ -2,7 +2,6 @@ using System.Collections.Generic;
 using AF.Dungeon;
 using NUnit.Framework;
 using UnityEngine;
-using static AF.Dungeon.PlacedRoom;
 
 namespace AF.Tests
 {

@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using UnityEngine;
-using static AF.Dungeon.PlacedRoom;
 
 namespace AF.Dungeon
 {
@@ -149,7 +148,7 @@ namespace AF.Dungeon
 
             if (!pathCompleted)
             {
-                errorMessage = "Critical path ewas not completed";
+                errorMessage = "Critical path was not completed";
                 return false;
             }
 

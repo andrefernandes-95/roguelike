@@ -88,16 +88,16 @@ namespace AF.Dungeon
             Position = position;
             Rotation = rotation;
         }
+    }
 
-        /// <summary>
-        /// Category pool passed into the solver
-        /// </summary>
-        public sealed class RoomCategoryConfig
-        {
-            public string Name;
-            public List<RoomTemplate> Templates = new();
-            public float SideRoomChance;
-            public List<RoomTemplate> SideRoomTemplates;
-        }
+    /// <summary>
+    /// Category pool passed into the solver
+    /// </summary>
+    public sealed class RoomCategoryConfig
+    {
+        public string Name;
+        public List<RoomTemplate> Templates = new();
+        public float SideRoomChance;
+        public List<RoomTemplate> SideRoomTemplates;
     }
 }
