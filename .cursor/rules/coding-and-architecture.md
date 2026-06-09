@@ -2,7 +2,7 @@
 alwaysApply: true
 ---
 
-# Rogue — Agent & Architecture Rules
+# AF — Agent & Architecture Rules
 
 > Soulslike combat + roguelike runs. **Indie game jam scope.**
 > Reference project: `Cacildes Adventure 2` (inspiration only — do not copy structure wholesale).
@@ -38,8 +38,9 @@ Each delivery file must include:
 1. **Goal** — one paragraph, what this adds and why
 2. **Files to create** — full paths under `Assets/_Project/`
 3. **Full file contents** — copy-paste ready code blocks, one block per file, labeled with the target path
-4. **Unity setup steps** — Inspector wiring, scene objects, play-mode verification
-5. **Checklist** — compile, play, keyboard/gamepad (if UI)
+4. **Unit tests** — Edit Mode tests for every plain C# logic class (solver, bounds, state machine, damage math, etc.). Include test file paths + full contents in the same `.md`. MonoBehaviour-only glue with no logic may skip tests if justified in one line.
+5. **Unity setup steps** — Inspector wiring, scene objects, play-mode verification
+6. **Checklist** — compile, **tests pass**, play, keyboard/gamepad (if UI)
 
 ### Format template
 
@@ -65,6 +66,7 @@ Each delivery file must include:
 ## Verify
 
 - [ ] Compiles
+- [ ] Edit Mode tests pass (Test Runner)
 - [ ] ...
 ```
 
@@ -121,7 +123,7 @@ Write for your **dumber future self** at 2 AM before a build.
 - **`Game` ScriptableObject** — player cosmetics, world flags, roguelike toggle, equipment defaults in one asset.
 - **TigerForge `EventManager`** — stringly-typed broadcast; impossible to trace who listens.
 - **Roguelike bolted onto soulslike** — `isRoguelike` flag on `Game` instead of a first-class run lifecycle.
-- **Namespace `AF`** — monolith; no assembly boundaries.
+- **Monolithic Cacildes `Scripts/` folder** — hundreds of files, no asmdefs. **This project uses `AF.*` namespaces with one asmdef per feature** — not a return to the old monolith.
 
 ---
 
@@ -143,27 +145,43 @@ Assets/_Project/
 └── Editor/               # Inspectors, debug tools (Editor asmdef only)
 ```
 
-Each feature folder has:
+Each feature folder has an asmdef at the **feature root** (covers `Runtime/`, `Input/`, etc.):
 
 ```
 Feature/
-├── Runtime/              # Runtime .cs + Feature.Runtime.asmdef
-├── Editor/               # (optional) Editor-only code
+├── AF.Feature.asmdef     # e.g. AF.Core, AF.Player, AF.Dungeon
+├── Runtime/
+├── Editor/               # (optional) Editor-only code + AF.Feature.Editor.asmdef
 └── Data/                 # (optional) ScriptableObject assets
 ```
 
-### Assembly dependency rules (strict)
+### Namespaces & asmdefs (strict)
+
+| Asmdef | Namespace | References |
+|--------|-----------|------------|
+| `AF.Core` | `AF.Core` | Unity only |
+| `AF.Stats` | `AF.Stats` | `AF.Core` |
+| `AF.Combat` | `AF.Combat` | `AF.Stats`, `AF.Core` |
+| `AF.AI` | `AF.AI` | `AF.Combat`, `AF.Stats`, `AF.Core` |
+| `AF.Player` | `AF.Player` | `AF.Core`, `Unity.InputSystem` |
+| `AF.Dungeon` | `AF.Dungeon` | `AF.Core` |
+| `AF.Loot` | `AF.Loot` | `AF.Stats`, `AF.Core` |
+| `AF.Meta` | `AF.Meta` | `AF.Core` |
+| `AF.UI` | `AF.UI` | `AF.Core` |
+| `AF.Tests.EditMode` | `AF.Tests` | test targets (Editor only) |
+
+Dependency direction:
 
 ```
 Core          →  (Unity, Input System only)
 Stats         →  Core
 Combat        →  Stats, Core
 AI            →  Combat, Stats, Core
-Player        →  Core, Stats, Input System
+Player        →  Core, Input System
 Dungeon       →  Core
 Loot          →  Stats, Core
 Meta          →  Core
-UI            →  Core (+ feature interfaces via events/callbacks, not concrete types)
+UI            →  Core
 Editor        →  everything (editor only)
 ```
 
@@ -288,17 +306,55 @@ Jam scope combat verbs: **move, dodge, light attack, block** — add heavy/spell
 
 ---
 
-## 10. Dungeon (port pattern from Cacildes)
+## 10. Dungeon (`AF.Dungeon`) — locked decisions
 
-1. `DungeonLayoutSolver` (pure C#) — already proven in Cacildes; port and simplify.
-2. `DungeonGenerator` (MonoBehaviour) — reads seed from `RunSession`, calls solver, instantiates prefabs.
-3. `LogicalRoom` / `PlacedRoom` — no `GameObject` in solver.
+Port from Cacildes with **KISS** rules. Delivery in four slices: types → solver → prefab authoring → generator.
+
+### Locked (do not change without user approval)
+
+| Decision | Value |
+|----------|-------|
+| Namespace / asmdef | `AF.Dungeon` |
+| Critical path `roomSize` (jam) | **5** (start + 3 mid + boss) |
+| Side rooms | **Keep** |
+| Connector rooms | **Keep** |
+| Collision | **One `BoxCollider` footprint per room** — no floor-tile matrix |
+| Seed source | `RunCoordinator.Instance.Session.Seed` |
+| Visibility culling | **Out** (jam v1) |
+| Enemy/loot spawn in generator | **Out** — `AI` / `Loot` modules later |
+
+### Architecture
+
+1. **`DungeonLayoutSolver`** (plain C#) — placement only; no `GameObject` in solver.
+2. **`RoomTemplate` / `PlacedRoom` / `DoorSocket`** — logic types; `RoomTemplate` has one `Bounds Footprint`, not a tile list.
+3. **`BoundsHelper`** — one overlap function (~30 lines).
+4. **`RoomPrefabData`** (MonoBehaviour on prefab) — authored footprint + doors; `OnValidate` from `RoomBounds` collider.
+5. **`RoomCategoryData`** (ScriptableObject) — prefab pool, side room chance, connector pool.
+6. **`DungeonGenerator`** (thin adapter) — build configs, call solver, instantiate, dead-ends, player spawn. **~80–100 lines target.**
+
+### Placement helpers (dedupe Cacildes)
+
+- `TryAttachRoom(...)` — direct snap exit → entrance
+- `TryAttachWithConnector(...)` — optional connector between two rooms
+
+Copy `AlignRooms` and `GetCategoryForIndex` math from Cacildes **verbatim** on first port.
+
+### Room prefab authoring
+
+```
+Room (root)
+├── RoomPrefabData
+├── BoxCollider "RoomBounds"   ← footprint, not trigger
+├── DoorEntrance               ← empty marker, forward = into room
+├── DoorExit
+└── Floor (visual only)
+```
 
 **Room constraints for camera + lock-on:**
 
-- Minimum floor size per room category (document in SO tooltip)
-- Doorways must face connectable axes
-- Boss rooms are authored categories, not random soup
+- Boxy rooms for jam (L-shapes need a tight hand-placed box)
+- Doorways face connectable axes
+- Boss = last category in `layoutSequence`
 
 ---
 
@@ -400,7 +456,8 @@ Forbidden:
 
 | Item                   | Convention                                                     |
 | ---------------------- | -------------------------------------------------------------- |
-| Namespace              | `Rogue.Core`, `Rogue.Combat`, `Rogue.Dungeon`, …               |
+| Namespace              | `AF.Core`, `AF.Combat`, `AF.Dungeon`, …                        |
+| Asmdef file            | `AF.Core.asmdef`, `AF.Dungeon.asmdef`, … at feature root       |
 | MonoBehaviour adapters | `*Adapter`, `*Presenter`, `*View`, `*Gate`, `*Rig`             |
 | Plain C# logic         | `*Resolver`, `*Solver`, `*Machine`, `*Sheet`                   |
 | ScriptableObjects      | `*Data`, `*Config`, `*Definition`                              |
@@ -415,12 +472,33 @@ Forbidden:
 
 ---
 
-## 16. Testing
+## 16. Testing (mandatory in every delivery)
 
-- **Edit Mode tests** for every plain C# solver/state machine (`DungeonLayoutSolver`, `RunStateMachine`, `DamageResolver`)
-- Tests live in `Assets/_Project/Tests/EditMode/` with `Rogue.Tests.EditMode.asmdef`
+**Every `docs/code/*.md` delivery includes unit tests** unless the slice is pure UI/prefab wiring with no testable logic (state why in the `.md`).
+
+### Rules
+
+- **Edit Mode tests** (NUnit) for plain C#: solvers, bounds, state machines, damage math, stat sheets
+- Tests live in `Assets/_Project/Tests/EditMode/` with `AF.Tests.EditMode.asmdef`
+- Test **logic**, not instantiated prefabs or Play Mode scenes
+- Reuse shared builders (e.g. `TestRooms.Box`) in `AF.Tests` namespace
+- Name tests clearly: `MethodName_Scenario_ExpectedResult`
 - No Play Mode tests for jam unless verifying a critical integration
-- Copy approach from Cacildes `EditMode_Tests/DungeonGeneratorTests.cs` — test solver, not instantiated prefabs
+
+### What to test per layer
+
+| Layer | Test? |
+|-------|-------|
+| Plain C# logic | **Yes** — required |
+| Static helpers (`BoundsHelper`) | **Yes** |
+| MonoBehaviour adapter (thin glue) | Optional — prefer testing the logic it calls |
+| UXML / USS / scene wiring | Manual checklist only |
+
+### Delivery `.md` must include
+
+- `AF.Tests.EditMode.asmdef` reference note if new assembly reference needed
+- Full test file contents (same as production code)
+- Verify checklist item: **Edit Mode tests pass**
 
 ---
 
@@ -460,11 +538,12 @@ When implementing a task:
 ### Definition of done (per delivery `.md`)
 
 - [ ] Every new file has a labeled path and complete contents
+- [ ] **Unit tests included** for all new plain C# logic (or explicit skip reason)
 - [ ] Unity setup steps are explicit (GameObjects, Inspector fields, scenes)
 - [ ] Asmdef dependency direction documented if references change
 - [ ] No `Find*` in runtime code
 - [ ] Logic classes have no `UnityEngine` dependency (or exception is explained)
-- [ ] Verify checklist included for the user
+- [ ] Verify checklist includes **Test Runner → Edit Mode → pass**
 
 ---
 
@@ -499,14 +578,14 @@ When implementing a task:
 ### Plain C# state machine
 
 ```csharp
-namespace Rogue.Core
+namespace AF.Core
 {
     public enum RunState { Boot, MainMenu, RunStarting, FloorActive, Encounter, FloorCleared, PlayerDead, RunEnded }
 
     public sealed class RunStateMachine
     {
         public RunState State { get; private set; }
-        public bool TryTransition(RunState next) { /* validate + set */ }
+        public void GoTo(RunState next) { /* set + event */ }
     }
 }
 ```
@@ -514,14 +593,12 @@ namespace Rogue.Core
 ### MonoBehaviour adapter (thin)
 
 ```csharp
-namespace Rogue.Core
+namespace AF.Core
 {
     public sealed class RunCoordinator : MonoBehaviour
     {
-        [SerializeField] RunConfig _config;
         RunStateMachine _machine = new();
-
-        void Update() { /* read frame dt, tick machine, switch scenes on transition */ }
+        // scene loads on state entered — no god logic
     }
 }
 ```
@@ -541,4 +618,4 @@ namespace Rogue.Core
 
 ---
 
-_Last updated: code delivery rule (§2). Amend this file when architecture decisions change — agents must follow the latest version._
+_Last updated: mandatory unit tests in every delivery (§2, §16). Canonical: `.cursor/rules/coding-and-architecture.md`. Mirror: `agent.md`._
