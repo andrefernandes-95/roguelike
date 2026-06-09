@@ -1,3 +1,7 @@
+---
+alwaysApply: true
+---
+
 # Rogue — Agent & Architecture Rules
 
 > Soulslike combat + roguelike runs. **Indie game jam scope.**
@@ -43,31 +47,35 @@ Each delivery file must include:
 # Feature name
 
 ## Goal
+
 ...
 
 ## Files
 
 ### `Assets/_Project/Core/Runtime/Example.cs`
+
 \`\`\`csharp
 // full file
 \`\`\`
 
 ## Unity setup
+
 1. ...
 
 ## Verify
+
 - [ ] Compiles
 - [ ] ...
 ```
 
 ### Agent rules
 
-| Do | Don't |
-|----|-------|
-| Write `docs/code/*.md` | Write `Assets/**/*.cs` (unless user explicitly requests) |
-| Give complete files in fenced blocks | Give partial snippets with `// ... rest` |
-| State which package/asmdef is touched | Silently add dependencies |
-| One delivery file per feature slice | Split across chat-only code with no file |
+| Do                                    | Don't                                                    |
+| ------------------------------------- | -------------------------------------------------------- |
+| Write `docs/code/*.md`                | Write `Assets/**/*.cs` (unless user explicitly requests) |
+| Give complete files in fenced blocks  | Give partial snippets with `// ... rest`                 |
+| State which package/asmdef is touched | Silently add dependencies                                |
+| One delivery file per feature slice   | Split across chat-only code with no file                 |
 
 ### User workflow
 
@@ -81,14 +89,14 @@ Each delivery file must include:
 
 Write for your **dumber future self** at 2 AM before a build.
 
-| Do | Don't |
-|----|-------|
-| Short files, one job | God classes (`PlayerManager`, `SaveManager`, `GameManager`) |
-| Composition (components) | Deep inheritance trees (`CharacterBaseManager` → `PlayerManager` → …) |
-| Plain C# for rules & state | Business logic in `Update()` |
-| Explicit data flow | Global string events (`EventManager` + `ON_*` constants) |
-| Serialize references in the Inspector | `FindObjectOfType` / `FindAnyObjectByType` at runtime |
-| Copy patterns that worked in Cacildes (`DungeonLayoutSolver`) | Copy patterns that rotted (40-field managers, 700-line saves) |
+| Do                                                            | Don't                                                                 |
+| ------------------------------------------------------------- | --------------------------------------------------------------------- |
+| Short files, one job                                          | God classes (`PlayerManager`, `SaveManager`, `GameManager`)           |
+| Composition (components)                                      | Deep inheritance trees (`CharacterBaseManager` → `PlayerManager` → …) |
+| Plain C# for rules & state                                    | Business logic in `Update()`                                          |
+| Explicit data flow                                            | Global string events (`EventManager` + `ON_*` constants)              |
+| Serialize references in the Inspector                         | `FindObjectOfType` / `FindAnyObjectByType` at runtime                 |
+| Copy patterns that worked in Cacildes (`DungeonLayoutSolver`) | Copy patterns that rotted (40-field managers, 700-line saves)         |
 
 **The dumb code test:** If you cannot explain what a class does in one sentence without "and also", split it.
 
@@ -216,14 +224,14 @@ Implement as plain C# `RunStateMachine`. One MonoBehaviour adapter (`RunCoordina
 
 ### Core types (initial)
 
-| Type | Responsibility |
-|------|----------------|
-| `RunStateMachine` | States, transitions, run seed, floor index |
-| `RunConfig` / `RunSession` (SO or struct) | Per-run data: seed, difficulty, elapsed time |
-| `MetaProfile` (plain C# + save adapter) | Persistent unlocks (jam: 1 currency, 3 upgrades max) |
-| `ISceneFlow` | Load/unload dungeon, menu, bootstrap |
-| `IPlayerSpawn` | Interface only — implementation in `Player` |
-| `GameBootstrap` | Entry point; wires refs from Inspector |
+| Type                                      | Responsibility                                       |
+| ----------------------------------------- | ---------------------------------------------------- |
+| `RunStateMachine`                         | States, transitions, run seed, floor index           |
+| `RunConfig` / `RunSession` (SO or struct) | Per-run data: seed, difficulty, elapsed time         |
+| `MetaProfile` (plain C# + save adapter)   | Persistent unlocks (jam: 1 currency, 3 upgrades max) |
+| `ISceneFlow`                              | Load/unload dungeon, menu, bootstrap                 |
+| `IPlayerSpawn`                            | Interface only — implementation in `Player`          |
+| `GameBootstrap`                           | Entry point; wires refs from Inspector               |
 
 ### Core does NOT own
 
@@ -390,15 +398,15 @@ Forbidden:
 
 ## 15. Naming & style
 
-| Item | Convention |
-|------|------------|
-| Namespace | `Rogue.Core`, `Rogue.Combat`, `Rogue.Dungeon`, … |
-| MonoBehaviour adapters | `*Adapter`, `*Presenter`, `*View`, `*Gate`, `*Rig` |
-| Plain C# logic | `*Resolver`, `*Solver`, `*Machine`, `*Sheet` |
-| ScriptableObjects | `*Data`, `*Config`, `*Definition` |
-| Interfaces | `I*` prefix, live in lowest assembly that needs them |
-| Fields | `_camelCase` private, `PascalCase` public properties |
-| SerializeField | `[SerializeField] Type _name` — no public fields for Inspector |
+| Item                   | Convention                                                     |
+| ---------------------- | -------------------------------------------------------------- |
+| Namespace              | `Rogue.Core`, `Rogue.Combat`, `Rogue.Dungeon`, …               |
+| MonoBehaviour adapters | `*Adapter`, `*Presenter`, `*View`, `*Gate`, `*Rig`             |
+| Plain C# logic         | `*Resolver`, `*Solver`, `*Machine`, `*Sheet`                   |
+| ScriptableObjects      | `*Data`, `*Config`, `*Definition`                              |
+| Interfaces             | `I*` prefix, live in lowest assembly that needs them           |
+| Fields                 | `_camelCase` private, `PascalCase` public properties           |
+| SerializeField         | `[SerializeField] Type _name` — no public fields for Inspector |
 
 - **Files:** one primary type per file; file name = type name
 - **Usings:** remove unused; no `using Input = UnityEngine.Input` hacks
@@ -522,15 +530,15 @@ namespace Rogue.Core
 
 ## 21. Glossary
 
-| Term | Meaning |
-|------|---------|
-| **Run** | One attempt from `RunStarting` to `RunEnded` (death or victory) |
-| **Floor** | One procedural dungeon layer within a run |
-| **Meta** | Persistent progress between runs |
-| **Adapter** | MonoBehaviour that connects Unity to plain C# |
-| **Intent** | Frame input snapshot consumed by gameplay systems |
-| **Control gate** | Enables/disables player adapters (menu, stun, death) |
+| Term             | Meaning                                                         |
+| ---------------- | --------------------------------------------------------------- |
+| **Run**          | One attempt from `RunStarting` to `RunEnded` (death or victory) |
+| **Floor**        | One procedural dungeon layer within a run                       |
+| **Meta**         | Persistent progress between runs                                |
+| **Adapter**      | MonoBehaviour that connects Unity to plain C#                   |
+| **Intent**       | Frame input snapshot consumed by gameplay systems               |
+| **Control gate** | Enables/disables player adapters (menu, stun, death)            |
 
 ---
 
-*Last updated: code delivery rule (§2). Amend this file when architecture decisions change — agents must follow the latest version.*
+_Last updated: code delivery rule (§2). Amend this file when architecture decisions change — agents must follow the latest version._
