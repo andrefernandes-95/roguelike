@@ -7,7 +7,7 @@ namespace AF.UI
     [RequireComponent(typeof(UIDocument))]
     public sealed class TitleScreenPresenter : MonoBehaviour
     {
-        [SerializeField] RunCoordinator runCoordinator;
+        RunCoordinator runCoordinator;
 
         UIDocument document;
         VisualElement root;
@@ -17,6 +17,11 @@ namespace AF.UI
         void Awake()
         {
             document = GetComponent<UIDocument>();
+
+            if (runCoordinator == null)
+            {
+                runCoordinator = RunCoordinator.Instance;
+            }
         }
 
         void OnEnable()

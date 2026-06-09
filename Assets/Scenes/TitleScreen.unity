@@ -148,8 +148,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 05c2ee489ec8843468635a55dfc8e142, type: 3}
   m_Name: 
   m_EditorClassIdentifier: AF.Core::AF.Core.RunCoordinator
-  mainMenuScene: 
-  dungeonScene: 
+  mainMenuScene: TitleScreen
+  dungeonScene: Graybox
 --- !u!4 &98492736
 Transform:
   m_ObjectHideFlags: 0

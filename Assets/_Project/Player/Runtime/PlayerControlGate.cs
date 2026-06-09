@@ -5,12 +5,17 @@ namespace AF.Player
 {
     public sealed class PlayerControlGate : MonoBehaviour
     {
-        [SerializeField] RunCoordinator runCoordinator;
         [SerializeField] PlayerInputAdapter input;
         [SerializeField] PlayerMotor motor;
         [SerializeField] PlayerCameraRig cameraRig;
 
+        RunCoordinator runCoordinator;
         RunState lastState;
+
+        void Awake()
+        {
+            runCoordinator = RunCoordinator.Instance;
+        }
 
         void Update()
         {

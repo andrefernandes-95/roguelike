@@ -9,6 +9,8 @@ namespace AF.Core
     /// </summary>
     public sealed class RunCoordinator : MonoBehaviour
     {
+        public static RunCoordinator Instance { get; private set; }
+
         [SerializeField] string mainMenuScene = "";
         [SerializeField] string dungeonScene = "";
 
@@ -20,18 +22,32 @@ namespace AF.Core
 
         void Awake()
         {
+            if (Instance != null && Instance != this)
+            {
+                Destroy(gameObject);
+                return;
+            }
+
+            Instance = this;
             DontDestroyOnLoad(gameObject);
             stateMachine.StateEntered += OnStateEntered;
         }
 
-        void Oestroy()
+        void OnDestroy()
         {
             stateMachine.StateEntered -= OnStateEntered;
+            if (Instance == this)
+            {
+                Instance = null;
+            }
         }
 
         void Start()
         {
-            stateMachine.GoTo(RunState.MainMenu);
+            if (stateMachine.State == RunState.Boot)
+            {
+                stateMachine.GoTo(RunState.MainMenu);
+            }
         }
 
         public void NewRun()
@@ -89,6 +105,5 @@ namespace AF.Core
 
             SceneManager.LoadScene(sceneName);
         }
-
     }
 }
