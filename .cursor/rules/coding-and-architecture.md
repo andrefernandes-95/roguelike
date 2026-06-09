@@ -18,40 +18,39 @@ Every file, class, and system must earn its place in a **1–2 week** scope. Whe
 
 ---
 
-## 2. Code delivery
+## 2. Code delivery (mandatory)
 
-**Agents write code directly** into `Assets/_Project/`. Implement features in the repo — do not only paste snippets in chat.
+**The user writes all game code.** Agents do not create or edit `.cs`, `.uxml`, `.uss`, `.asmdef`, or other source assets unless the user explicitly asks otherwise.
 
-Optional: still add or update `docs/code/<feature>.md` for larger slices (design notes, setup checklist). **Not required** for every change.
+### What agents deliver
 
-### Default workflow
+Every implementation task is delivered as a **markdown file** in `docs/code/`:
 
-1. **Implement** — create/edit `.cs`, `.asmdef`, `.uxml`, `.uss` under `Assets/_Project/`
-2. **Test** — add Edit Mode tests for plain C# logic (mandatory per §16)
-3. **Summarize** — tell the user what changed, how to wire Inspector/scenes, what to verify
+```
+docs/code/
+├── core-bootstrap.md
+├── player-motor.md
+└── ...
+```
 
-### Per-task requirements
+Each delivery file must include:
 
-| Item | Rule |
-|------|------|
-| Production code | Write complete files in the correct package folder |
-| Unit tests | Include with every logic slice — same session, not “later” |
-| UXML | May write directly (user preference) |
-| Scope | One feature slice per task — no drive-by refactors |
-| Asmdefs | Document if references change; never violate §5 dependency direction |
+1. **Goal** — one paragraph, what this adds and why
+2. **Files to create** — full paths under `Assets/_Project/`
+3. **Full file contents** — copy-paste ready code blocks, one block per file, labeled with the target path
+4. **Unit tests** — Edit Mode tests for every plain C# logic class (solver, bounds, state machine, damage math, etc.). Include full test file contents in the same delivery.
+5. **Unity setup steps** — Inspector wiring, scene objects, play-mode verification
+6. **Checklist** — compile, Test Runner → Edit Mode → pass, play, keyboard/gamepad (if UI)
 
 ### Agent rules
 
 | Do | Don't |
 |----|-------|
-| Write files directly in `Assets/_Project/` | Partial snippets with `// ... rest` in chat only |
-| Add Edit Mode tests with logic changes | Skip tests without a one-line justification |
-| State package/asmdef impact in summary | Silently add assembly references |
-| Keep diffs focused (jam scope) | Touch unrelated files “while here” |
-
-### Optional `docs/code/` template (big slices only)
-
-Use when a feature needs a handoff doc: goal, file list, Unity setup, verify checklist. Historical examples: `core-bootstrap.md`, `dungeon-solver.md`.
+| Write complete `docs/code/<feature>.md` handoffs | Create or edit `.cs` / `.asmdef` in `Assets/_Project/` (unless user explicitly asks) |
+| Include full copy-paste file contents in the doc | Partial snippets with `// ... rest` |
+| Include Edit Mode tests in every logic delivery | Skip tests without a one-line justification |
+| State package/asmdef impact in the doc | Silently add assembly references in the repo |
+| One feature slice per delivery | Touch unrelated files “while here” |
 
 ---
 
@@ -494,24 +493,24 @@ Forbidden:
 When implementing a task:
 
 1. **Read this file** — package ownership, asmdef direction, jam scope
-2. **Implement in repo** — write code under `Assets/_Project/` directly
-3. **Add unit tests** — Edit Mode tests for all new plain C# logic (§16)
+2. **Deliver `docs/code/<feature>.md`** — full file contents for the user to type
+3. **Include unit tests** — Edit Mode tests for all new plain C# logic (§16), in the same doc
 4. **Prefer plain C# classes** over new MonoBehaviours where possible
 5. **Port from Cacildes** only after stating what you are simplifying
 6. **Do not** design managers with more than **5** serialized dependencies
 7. **Do not** add features outside jam loop (quests, companions, day/night, reputation, crafting)
-8. **UI screens** — UXML/USS + keyboard/gamepad focus; write files directly
-9. **One slice per task** — focused diff, not a monolith
+8. **UI screens** — UXML/USS + keyboard/gamepad focus; full contents in the delivery doc
+9. **One slice per task** — focused delivery, not a monolith
 
 ### Definition of done (per task)
 
-- [ ] Production files written and compile
-- [ ] **Unit tests included** for all new plain C# logic (or explicit skip reason)
-- [ ] User told what to wire in Inspector / scenes (if any)
-- [ ] Asmdef dependency direction respected
-- [ ] No `Find*` in runtime code
+- [ ] `docs/code/<feature>.md` written with full copy-paste file contents
+- [ ] **Unit tests included** in the doc for all new plain C# logic (or explicit skip reason)
+- [ ] Unity setup steps and verify checklist included
+- [ ] Asmdef dependency direction documented if references change
+- [ ] No `Find*` in runtime code (in delivered snippets)
 - [ ] Logic classes have no `UnityEngine` dependency (or exception is explained)
-- [ ] **Test Runner → Edit Mode → pass** (agent runs or user confirms)
+- [ ] User confirms **Test Runner → Edit Mode → pass** after typing
 
 ---
 

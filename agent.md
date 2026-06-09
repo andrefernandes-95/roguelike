@@ -13,11 +13,11 @@
 
 ## Code delivery (§2)
 
-**Agents implement directly** in `Assets/_Project/` — `.cs`, `.asmdef`, `.uxml`, `.uss`.
+**The user writes all game code.** Agents deliver **`docs/code/<feature>.md`** with full copy-paste file contents.
 
-- **Unit tests** (Edit Mode) required with every plain C# logic change
-- Optional `docs/code/*.md` for large slices only
-- Summarize changes + Inspector/scene wiring for the user
+- **Unit tests** (Edit Mode) required in every logic delivery
+- Unity setup steps + verify checklist in each doc
+- Agents do not edit `.cs` / `.asmdef` in `Assets/_Project/` unless explicitly asked
 
 ---
 
@@ -32,7 +32,7 @@
 | Collision | One `BoxCollider` footprint per room |
 | Seed | `RunCoordinator.Instance.Session.Seed` |
 
-**Next:** `DungeonGenerator` adapter (slice 4).
+**Next (user types from docs):** `dungeon-prefab-authoring.md` (slice 3) → `dungeon-generator.md` (slice 4).
 
 ---
 

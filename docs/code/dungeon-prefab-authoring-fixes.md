@@ -1,15 +1,45 @@
+# Dungeon slice 3 — RoomPrefabData fixes
+
+## Goal
+
+Your `RoomPrefabData.cs` compiles but is missing bounds fallback and has a footprint math bug. Apply these fixes **before** typing the slice 3 tests — `BuildTemplate_MissingBounds_ReturnsNull` will throw otherwise.
+
+**Prerequisite:** `RoomPrefabData.cs` and `RoomCategoryData.cs` already exist.
+
+---
+
+## Fix 1 — `OnValidate` + bounds lookup in `BuildTemplate`
+
+Replace your `RoomPrefabData` class body with this version (or merge the marked sections):
+
+### `Assets/_Project/Dungeon/RoomPrefabData.cs`
+
+```csharp
 using UnityEngine;
 
 namespace AF.Dungeon
 {
     /// <summary>
-    /// On room prefab root. Reads Room Bounds and door markers
+    /// On room prefab root. Reads RoomBounds + door markers → RoomTemplate.
+    /// RoomBounds child: axis-aligned BoxCollider (not trigger).
     /// </summary>
     public sealed class RoomPrefabData : MonoBehaviour
     {
         const string BoundsChildName = "RoomBounds";
 
         [SerializeField] BoxCollider boundsCollider;
+
+        void OnValidate()
+        {
+            if (boundsCollider == null)
+            {
+                Transform child = transform.Find(BoundsChildName);
+                if (child != null)
+                {
+                    boundsCollider = child.GetComponent<BoxCollider>();
+                }
+            }
+        }
 
         public static RoomTemplate BuildTemplate(GameObject roomRoot)
         {
@@ -20,7 +50,22 @@ namespace AF.Dungeon
 
             Transform root = roomRoot.transform;
             var data = roomRoot.GetComponent<RoomPrefabData>();
-            BoxCollider box = data.boundsCollider;
+
+            BoxCollider box = data != null ? data.boundsCollider : null;
+            if (box == null)
+            {
+                Transform boundsChild = root.Find(BoundsChildName);
+                if (boundsChild != null)
+                {
+                    box = boundsChild.GetComponent<BoxCollider>();
+                }
+            }
+
+            if (box == null)
+            {
+                Debug.LogWarning($"RoomPrefabData: no RoomBounds on '{roomRoot.name}'.");
+                return null;
+            }
 
             var template = new RoomTemplate(roomRoot.name)
             {
@@ -81,7 +126,7 @@ namespace AF.Dungeon
         static Bounds GetFootprintInRootSpace(Transform root, BoxCollider box)
         {
             Transform t = box.transform;
-            Vector3 localCenter = root.InverseTransformPoint(box.center);
+            Vector3 localCenter = root.InverseTransformPoint(t.TransformPoint(box.center));
             Vector3 size = Vector3.Scale(box.size, t.lossyScale);
             return new Bounds(localCenter, size);
         }
@@ -89,9 +134,33 @@ namespace AF.Dungeon
         static DoorSocket ToSocket(Transform root, Transform door)
         {
             Vector3 localPos = root.InverseTransformPoint(door.position);
-            // Take a door, remove the room's movement and turning, and save the door's position and direction relative to the room.
             Quaternion localRot = Quaternion.Inverse(root.rotation) * door.rotation;
             return new DoorSocket(localPos, localRot);
         }
     }
 }
+```
+
+### What changed
+
+| Issue | Fix |
+|-------|-----|
+| `boundsCollider` null → NRE | Find `RoomBounds` child; return `null` + warning if missing |
+| Footprint wrong when bounds child is offset | Use `t.TransformPoint(box.center)` (world center → root-local) |
+| Inspector wiring tedious | `OnValidate` auto-finds `RoomBounds` collider |
+
+---
+
+## Next after this fix
+
+1. Type slice 3 tests from [dungeon-prefab-authoring.md](dungeon-prefab-authoring.md) (`RoomPrefabDataTests`, `RoomCategoryDataTests`)
+2. Build room prefabs — [dungeon-room-prefabs-unity.md](dungeon-room-prefabs-unity.md)
+3. Type slice 4 from [dungeon-generator.md](dungeon-generator.md)
+
+---
+
+## Checklist
+
+- [ ] `RoomPrefabData.cs` updated
+- [ ] Compiles
+- [ ] Test Runner → Edit Mode → slice 3 tests pass (after typing them)

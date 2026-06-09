@@ -9,6 +9,8 @@
 /[Mm]emory[Cc]aptures/
 /[Rr]ecordings/
 
+/StylizedHandPaintedDungeon(Free)/*
+
 # Asset meta should be committed — only ignore tooling noise below
 
 # Visual Studio / Rider
