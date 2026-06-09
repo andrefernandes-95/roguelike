@@ -194,6 +194,5 @@ namespace AF.Tests
             Assert.Greater(result.Count, 3, "Connector should add at least one extra room");
         }
 
-
     }
 }

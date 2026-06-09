@@ -11,6 +11,16 @@
 
 ---
 
+## Code delivery (§2)
+
+**Agents implement directly** in `Assets/_Project/` — `.cs`, `.asmdef`, `.uxml`, `.uss`.
+
+- **Unit tests** (Edit Mode) required with every plain C# logic change
+- Optional `docs/code/*.md` for large slices only
+- Summarize changes + Inspector/scene wiring for the user
+
+---
+
 ## Dungeon — locked decisions (§10)
 
 | Decision | Value |
@@ -22,17 +32,7 @@
 | Collision | One `BoxCollider` footprint per room |
 | Seed | `RunCoordinator.Instance.Session.Seed` |
 
-Delivery order: `dungeon-types-and-bounds.md` → `dungeon-solver.md` → `dungeon-prefab-authoring.md` → `dungeon-generator.md`
-
----
-
-## Code delivery (§2)
-
-User writes all `.cs` / `.asmdef`. Agents deliver **`docs/code/*.md`** with:
-
-- Full production file contents
-- **Unit tests** (Edit Mode) for every plain C# logic slice — mandatory
-- Setup steps + verify checklist (must include **tests pass**)
+**Next:** `DungeonGenerator` adapter (slice 4).
 
 ---
 

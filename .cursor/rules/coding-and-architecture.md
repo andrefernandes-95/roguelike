@@ -18,72 +18,40 @@ Every file, class, and system must earn its place in a **1–2 week** scope. Whe
 
 ---
 
-## 2. Code delivery (mandatory)
+## 2. Code delivery
 
-**The user writes all game code.** Agents do not create or edit `.cs`, `.uxml`, `.uss`, `.asmdef`, or other source assets unless the user explicitly asks otherwise.
+**Agents write code directly** into `Assets/_Project/`. Implement features in the repo — do not only paste snippets in chat.
 
-### What agents deliver
+Optional: still add or update `docs/code/<feature>.md` for larger slices (design notes, setup checklist). **Not required** for every change.
 
-Every implementation task is delivered as a **markdown file** in `docs/code/`:
+### Default workflow
 
-```
-docs/code/
-├── core-bootstrap.md
-├── player-motor.md
-└── ...
-```
+1. **Implement** — create/edit `.cs`, `.asmdef`, `.uxml`, `.uss` under `Assets/_Project/`
+2. **Test** — add Edit Mode tests for plain C# logic (mandatory per §16)
+3. **Summarize** — tell the user what changed, how to wire Inspector/scenes, what to verify
 
-Each delivery file must include:
+### Per-task requirements
 
-1. **Goal** — one paragraph, what this adds and why
-2. **Files to create** — full paths under `Assets/_Project/`
-3. **Full file contents** — copy-paste ready code blocks, one block per file, labeled with the target path
-4. **Unit tests** — Edit Mode tests for every plain C# logic class (solver, bounds, state machine, damage math, etc.). Include test file paths + full contents in the same `.md`. MonoBehaviour-only glue with no logic may skip tests if justified in one line.
-5. **Unity setup steps** — Inspector wiring, scene objects, play-mode verification
-6. **Checklist** — compile, **tests pass**, play, keyboard/gamepad (if UI)
-
-### Format template
-
-```markdown
-# Feature name
-
-## Goal
-
-...
-
-## Files
-
-### `Assets/_Project/Core/Runtime/Example.cs`
-
-\`\`\`csharp
-// full file
-\`\`\`
-
-## Unity setup
-
-1. ...
-
-## Verify
-
-- [ ] Compiles
-- [ ] Edit Mode tests pass (Test Runner)
-- [ ] ...
-```
+| Item | Rule |
+|------|------|
+| Production code | Write complete files in the correct package folder |
+| Unit tests | Include with every logic slice — same session, not “later” |
+| UXML | May write directly (user preference) |
+| Scope | One feature slice per task — no drive-by refactors |
+| Asmdefs | Document if references change; never violate §5 dependency direction |
 
 ### Agent rules
 
-| Do                                    | Don't                                                    |
-| ------------------------------------- | -------------------------------------------------------- |
-| Write `docs/code/*.md`                | Write `Assets/**/*.cs` (unless user explicitly requests) |
-| Give complete files in fenced blocks  | Give partial snippets with `// ... rest`                 |
-| State which package/asmdef is touched | Silently add dependencies                                |
-| One delivery file per feature slice   | Split across chat-only code with no file                 |
+| Do | Don't |
+|----|-------|
+| Write files directly in `Assets/_Project/` | Partial snippets with `// ... rest` in chat only |
+| Add Edit Mode tests with logic changes | Skip tests without a one-line justification |
+| State package/asmdef impact in summary | Silently add assembly references |
+| Keep diffs focused (jam scope) | Touch unrelated files “while here” |
 
-### User workflow
+### Optional `docs/code/` template (big slices only)
 
-1. Read the delivery `.md`
-2. Create files manually in Unity / IDE
-3. Ask for the next delivery `.md` when ready
+Use when a feature needs a handoff doc: goal, file list, Unity setup, verify checklist. Historical examples: `core-bootstrap.md`, `dungeon-solver.md`.
 
 ---
 
@@ -474,7 +442,7 @@ Forbidden:
 
 ## 16. Testing (mandatory in every delivery)
 
-**Every `docs/code/*.md` delivery includes unit tests** unless the slice is pure UI/prefab wiring with no testable logic (state why in the `.md`).
+**Every implementation task includes unit tests** when plain C# logic is added or changed. Pure UI/scene wiring with no testable logic may skip — state why in the summary.
 
 ### Rules
 
@@ -494,11 +462,11 @@ Forbidden:
 | MonoBehaviour adapter (thin glue) | Optional — prefer testing the logic it calls |
 | UXML / USS / scene wiring | Manual checklist only |
 
-### Delivery `.md` must include
+### Agent must include with logic changes
 
-- `AF.Tests.EditMode.asmdef` reference note if new assembly reference needed
-- Full test file contents (same as production code)
-- Verify checklist item: **Edit Mode tests pass**
+- Edit Mode test files in `Assets/_Project/Tests/EditMode/`
+- `AF.Tests.EditMode.asmdef` updated if new assembly reference needed
+- Tests run or user told to run **Test Runner → Edit Mode**
 
 ---
 
@@ -525,25 +493,25 @@ Forbidden:
 
 When implementing a task:
 
-1. **Read this file** — especially §2 Code delivery
-2. **Write `docs/code/<feature>.md`** — full copy-paste files, setup steps, checklist. **Do not** write source files in `Assets/` unless the user explicitly asks
-3. **Identify which package owns the work** and note asmdef impact in the delivery file
-4. **Prefer plain C# classes** over new MonoBehaviours (document both in the `.md`)
+1. **Read this file** — package ownership, asmdef direction, jam scope
+2. **Implement in repo** — write code under `Assets/_Project/` directly
+3. **Add unit tests** — Edit Mode tests for all new plain C# logic (§16)
+4. **Prefer plain C# classes** over new MonoBehaviours where possible
 5. **Port from Cacildes** only after stating what you are simplifying
 6. **Do not** design managers with more than **5** serialized dependencies
 7. **Do not** add features outside jam loop (quests, companions, day/night, reputation, crafting)
-8. **Include UXML/USS** in the delivery `.md` when adding screens (keyboard + gamepad focus order documented)
-9. **One delivery file per slice** — e.g. `core-bootstrap.md`, not a monolith
+8. **UI screens** — UXML/USS + keyboard/gamepad focus; write files directly
+9. **One slice per task** — focused diff, not a monolith
 
-### Definition of done (per delivery `.md`)
+### Definition of done (per task)
 
-- [ ] Every new file has a labeled path and complete contents
+- [ ] Production files written and compile
 - [ ] **Unit tests included** for all new plain C# logic (or explicit skip reason)
-- [ ] Unity setup steps are explicit (GameObjects, Inspector fields, scenes)
-- [ ] Asmdef dependency direction documented if references change
+- [ ] User told what to wire in Inspector / scenes (if any)
+- [ ] Asmdef dependency direction respected
 - [ ] No `Find*` in runtime code
 - [ ] Logic classes have no `UnityEngine` dependency (or exception is explained)
-- [ ] Verify checklist includes **Test Runner → Edit Mode → pass**
+- [ ] **Test Runner → Edit Mode → pass** (agent runs or user confirms)
 
 ---
 
@@ -618,4 +586,4 @@ namespace AF.Core
 
 ---
 
-_Last updated: mandatory unit tests in every delivery (§2, §16). Canonical: `.cursor/rules/coding-and-architecture.md`. Mirror: `agent.md`._
+_Last updated: agents write code directly (§2). Unit tests mandatory (§16). Canonical: `.cursor/rules/coding-and-architecture.md`. Mirror: `agent.md`._
