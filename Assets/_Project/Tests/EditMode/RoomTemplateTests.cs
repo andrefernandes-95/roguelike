@@ -21,7 +21,7 @@ namespace AF.Tests
                 new DoorSocket(new Vector3(0f, 0f, half), Quaternion.identity)
             );
             room.Entrances.Add(
-                new DoorSocket(new Vector3(0f, 0f, -half), Quaternion.Euler(0f, 180f, 0f))
+                new DoorSocket(new Vector3(0f, 0f, -half), Quaternion.identity)
             );
 
             return room;
