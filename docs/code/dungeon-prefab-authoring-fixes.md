@@ -2,7 +2,11 @@
 
 ## Goal
 
-Your `RoomPrefabData.cs` compiles but is missing bounds fallback and has a footprint math bug. Apply these fixes **before** typing the slice 3 tests — `BuildTemplate_MissingBounds_ReturnsNull` will throw otherwise.
+`RoomPrefabData` footprint math was breaking `BoundsHelper.CanPlace` for prefab-built rooms (footprint misaligned vs doors → constant overlap rejection).
+
+**Fixed in repo** — if your local copy still has the old code, apply the changes below.
+
+Symptoms: `DungeonLayoutSolver` fails at step 1+, or `CanPlace` always false with real prefabs while `TestRooms.Box` tests pass.
 
 **Prerequisite:** `RoomPrefabData.cs` and `RoomCategoryData.cs` already exist.
 

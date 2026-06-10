@@ -32,7 +32,16 @@
 | Collision | One `BoxCollider` footprint per room |
 | Seed | `RunCoordinator.Instance.Session.Seed` |
 
-**Next (user types from docs):** `dungeon-prefab-authoring.md` (slice 3) → `dungeon-generator.md` (slice 4).
+## Combat — next up
+
+**Type from:** [docs/code/combat-minimum.md](docs/code/combat-minimum.md) — Parts A → B → C → D.
+
+| Part | Package | What |
+|------|---------|------|
+| A | Core + Player | Move `PlayerIntent` to Core; add Attack/Block input |
+| B | `AF.Stats` | `HealthPool`, `DamageResolver` + tests |
+| C | `AF.Combat` | Health, hitbox/hurtbox, melee, death bridge |
+| D | Unity | Wire player + one `Enemy_Graybox` |
 
 ---
 

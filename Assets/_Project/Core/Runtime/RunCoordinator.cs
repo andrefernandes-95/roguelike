@@ -20,6 +20,8 @@ namespace AF.Core
         public RunState State => stateMachine.State;
         public RunSession Session => session;
 
+        [SerializeField] bool autoPlay = false;
+
         void Awake()
         {
             if (Instance != null && Instance != this)
@@ -31,6 +33,11 @@ namespace AF.Core
             Instance = this;
             DontDestroyOnLoad(gameObject);
             stateMachine.StateEntered += OnStateEntered;
+
+            if (autoPlay)
+            {
+                stateMachine.GoTo(RunState.FloorActive);
+            }
         }
 
         void OnDestroy()

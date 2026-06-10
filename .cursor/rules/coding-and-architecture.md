@@ -585,4 +585,4 @@ namespace AF.Core
 
 ---
 
-_Last updated: agents write code directly (§2). Unit tests mandatory (§16). Canonical: `.cursor/rules/coding-and-architecture.md`. Mirror: `agent.md`._
+_Last updated: user writes code from `docs/code/` (§2). Unit tests mandatory (§16). Canonical: `.cursor/rules/coding-and-architecture.md`. Mirror: `agent.md`._
