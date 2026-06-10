@@ -34,13 +34,13 @@
 
 ## Combat — next up
 
-**Type from:** [docs/code/combat-minimum.md](docs/code/combat-minimum.md) — Parts A → B → C → D.
+**Type from:** [docs/code/combat-minimum-v2.md](docs/code/combat-minimum-v2.md) — Parts A → B → C → D. (Supersedes `combat-minimum.md`.)
 
 | Part | Package | What |
 |------|---------|------|
 | A | Core + Player | Move `PlayerIntent` to Core; add Attack/Block input |
-| B | `AF.Stats` | `HealthPool`, `DamageResolver` + tests |
-| C | `AF.Combat` | Health, hitbox/hurtbox, melee, death bridge |
+| B | `AF.Stats` | `StatSheet`, `ResourcePool`, vitality → max HP + tests |
+| C | `AF.Combat` | `CombatAction` + `CombatController`, hitbox/hurtbox, death bridge |
 | D | Unity | Wire player + one `Enemy_Graybox` |
 
 ---

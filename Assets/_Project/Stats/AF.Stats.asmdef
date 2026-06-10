@@ -1,0 +1,16 @@
+{
+  "name": "AF.Stats",
+  "rootNamespace": "AF.Stats",
+  "references": [
+    "AF.Core"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

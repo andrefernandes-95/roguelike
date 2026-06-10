@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace AF.Player
 {
-    public sealed class PlayerInputAdapter : MonoBehaviour
+    public sealed class PlayerInputAdapter : MonoBehaviour, IPlayerIntentSource
     {
         PlayerInputActions actions;
         bool isEnabled;
@@ -31,7 +31,9 @@ namespace AF.Player
             {
                 Move = actions.Gameplay.Move.ReadValue<Vector2>(),
                 Look = actions.Gameplay.Look.ReadValue<Vector2>(),
-                Dodge = actions.Gameplay.Dodge.WasPressedThisFrame()
+                Dodge = actions.Gameplay.Dodge.WasPressedThisFrame(),
+                LightAttack = actions.Gameplay.LightAttack.WasPressedThisFrame(),
+                Block = actions.Gameplay.Block.IsPressed()
             };
         }
 

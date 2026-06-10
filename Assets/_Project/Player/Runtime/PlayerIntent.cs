@@ -7,5 +7,7 @@ namespace AF.Player
         public Vector2 Move;
         public Vector2 Look;
         public bool Dodge;
+        public bool LightAttack;
+        public bool Block;
     }
 }
