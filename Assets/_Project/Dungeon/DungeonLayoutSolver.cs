@@ -97,13 +97,13 @@ namespace AF.Dungeon
             RoomTemplate startPrefab = startCategory.Templates[Random.Range(0, startCategory.Templates.Count)];
             RoomTemplate startRoom = startPrefab.Clone();
 
-            if (!BoundsHelper.CanPlace(startRoom, Vector3.zero, Quaternion.identity, occupied, out Bounds footprint))
+            if (!BoundsHelper.CanPlace(startRoom, Vector3.zero, Quaternion.identity, occupied, out List<Bounds> startTiles))
             {
                 errorMessage = "Start room is invalid";
                 return false;
             }
 
-            occupied.Add(footprint);
+            occupied.AddRange(startTiles);
             placed.Add(new PlacedRoom(startRoom, Vector3.zero, Quaternion.identity));
             return true;
         }
@@ -287,14 +287,14 @@ namespace AF.Dungeon
 
             AlignRooms(fromRoom, exit, room, entrance, out Vector3 pos, out Quaternion rot);
 
-            if (!BoundsHelper.CanPlace(room, pos, rot, occupied, out Bounds footprint))
+            if (!BoundsHelper.CanPlace(room, pos, rot, occupied, out List<Bounds> roomTiles))
             {
                 return false;
             }
 
             exit.IsConnected = true;
             entrance.IsConnected = true;
-            occupied.Add(footprint);
+            occupied.AddRange(roomTiles);
             newRoom = new PlacedRoom(room, pos, rot);
             placed.Add(newRoom);
             return true;
@@ -329,7 +329,7 @@ namespace AF.Dungeon
 
                 AlignRooms(fromRoom, exit, connector, connEntrance, out Vector3 connPos, out Quaternion connRot);
 
-                if (!BoundsHelper.CanPlace(connector, connPos, connRot, occupied, out Bounds connFootprint))
+                if (!BoundsHelper.CanPlace(connector, connPos, connRot, occupied, out List<Bounds> connTiles))
                 {
                     continue;
                 }
@@ -348,7 +348,7 @@ namespace AF.Dungeon
 
                     AlignRooms(placedConnector, connExit, room, entrance, out Vector3 roomPos, out Quaternion roomRot);
 
-                    if (!BoundsHelper.CanPlace(room, roomPos, roomRot, occupied, new[] { connFootprint }, out Bounds roomFootprint))
+                    if (!BoundsHelper.CanPlace(room, roomPos, roomRot, occupied, connTiles, out List<Bounds> roomTiles))
                     {
                         continue;
                     }
@@ -358,8 +358,8 @@ namespace AF.Dungeon
                     connExit.IsConnected = true;
                     entrance.IsConnected = true;
 
-                    occupied.Add(connFootprint);
-                    occupied.Add(roomFootprint);
+                    occupied.AddRange(connTiles);
+                    occupied.AddRange(roomTiles);
 
                     placed.Add(placedConnector);
                     newRoom = new PlacedRoom(room, roomPos, roomRot);

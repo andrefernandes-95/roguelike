@@ -1,16 +1,13 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace AF.Dungeon
 {
     /// <summary>
-    /// On room prefab root. Reads Room Bounds and door markers
+    /// On room prefab root. Bakes RoomFloorTile bounds + door markers into RoomTemplate.
     /// </summary>
     public sealed class RoomPrefabData : MonoBehaviour
     {
-        const string BoundsChildName = "RoomBounds";
-
-        [SerializeField] BoxCollider boundsCollider;
-
         public static RoomTemplate BuildTemplate(GameObject roomRoot)
         {
             if (roomRoot == null)
@@ -19,14 +16,16 @@ namespace AF.Dungeon
             }
 
             Transform root = roomRoot.transform;
-            var data = roomRoot.GetComponent<RoomPrefabData>();
-            BoxCollider box = data.boundsCollider;
-
             var template = new RoomTemplate(roomRoot.name)
             {
-                LocalScale = root.localScale,
-                Footprint = GetFootprintInRootSpace(root, box)
+                LocalScale = root.localScale
             };
+
+            if (!TryCollectFloorTiles(root, template.FloorTiles, out string floorError))
+            {
+                Debug.LogWarning($"RoomPrefabData: '{roomRoot.name}' — {floorError}");
+                return null;
+            }
 
             DoorEntrance[] entrances = roomRoot.GetComponentsInChildren<DoorEntrance>(true);
             foreach (DoorEntrance entrance in entrances)
@@ -50,9 +49,12 @@ namespace AF.Dungeon
                 return null;
             }
 
+            Vector3 prefabScale = prefabAsset.transform.localScale;
+
             GameObject instance = Object.Instantiate(prefabAsset);
             instance.SetActive(false);
             instance.transform.SetPositionAndRotation(Vector3.zero, Quaternion.identity);
+            instance.transform.localScale = Vector3.one;
             instance.name = prefabAsset.name;
 
             try
@@ -61,6 +63,7 @@ namespace AF.Dungeon
                 if (template != null)
                 {
                     template.Id = prefabAsset.name;
+                    template.LocalScale = prefabScale;
                 }
 
                 return template;
@@ -78,18 +81,67 @@ namespace AF.Dungeon
             }
         }
 
-        static Bounds GetFootprintInRootSpace(Transform root, BoxCollider box)
+        static bool TryCollectFloorTiles(Transform root, List<Bounds> tiles, out string error)
         {
-            Transform t = box.transform;
-            Vector3 localCenter = root.InverseTransformPoint(box.center);
-            Vector3 size = Vector3.Scale(box.size, t.lossyScale);
-            return new Bounds(localCenter, size);
+            error = "";
+            RoomFloorTile[] markers = root.GetComponentsInChildren<RoomFloorTile>(true);
+            if (markers.Length == 0)
+            {
+                error = "needs at least one RoomFloorTile component on a floor child.";
+                return false;
+            }
+
+            foreach (RoomFloorTile marker in markers)
+            {
+                Transform tile = marker.transform;
+                MeshFilter meshFilter = tile.GetComponent<MeshFilter>();
+                if (meshFilter == null || meshFilter.sharedMesh == null)
+                {
+                    error = $"RoomFloorTile on '{tile.name}' requires a MeshFilter with a mesh.";
+                    return false;
+                }
+
+                Vector3 relativePos = root.InverseTransformPoint(tile.position);
+                Quaternion relativeRot = Quaternion.Inverse(root.rotation) * tile.rotation;
+
+                Bounds meshBounds = meshFilter.sharedMesh.bounds;
+                Vector3 scaledSize = Vector3.Scale(meshBounds.size, tile.localScale);
+                meshBounds.center = Vector3.Scale(meshBounds.center, tile.localScale);
+                meshBounds.size = new Vector3(scaledSize.x, 0.5f, scaledSize.z);
+                tiles.Add(LocalBoundsInRootSpace(relativePos, relativeRot, meshBounds));
+            }
+
+            return true;
+        }
+
+        static Bounds LocalBoundsInRootSpace(Vector3 relativePos, Quaternion relativeRot, Bounds localBounds)
+        {
+            Vector3 center = relativePos + relativeRot * localBounds.center;
+            Vector3 extents = localBounds.extents;
+
+            Vector3 min = new(float.MaxValue, float.MaxValue, float.MaxValue);
+            Vector3 max = new(float.MinValue, float.MinValue, float.MinValue);
+
+            for (int x = -1; x <= 1; x += 2)
+            {
+                for (int y = -1; y <= 1; y += 2)
+                {
+                    for (int z = -1; z <= 1; z += 2)
+                    {
+                        Vector3 corner = new(extents.x * x, extents.y * y, extents.z * z);
+                        Vector3 rootPos = center + relativeRot * corner;
+                        min = Vector3.Min(min, rootPos);
+                        max = Vector3.Max(max, rootPos);
+                    }
+                }
+            }
+
+            return new Bounds((min + max) * 0.5f, max - min);
         }
 
         static DoorSocket ToSocket(Transform root, Transform door)
         {
             Vector3 localPos = root.InverseTransformPoint(door.position);
-            // Take a door, remove the room's movement and turning, and save the door's position and direction relative to the room.
             Quaternion localRot = Quaternion.Inverse(root.rotation) * door.rotation;
             return new DoorSocket(localPos, localRot);
         }

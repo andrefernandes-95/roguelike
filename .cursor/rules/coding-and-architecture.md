@@ -285,7 +285,7 @@ Port from Cacildes with **KISS** rules. Delivery in four slices: types → solve
 | Critical path `roomSize` (jam) | **5** (start + 3 mid + boss) |
 | Side rooms | **Keep** |
 | Connector rooms | **Keep** |
-| Collision | **One `BoxCollider` footprint per room** — no floor-tile matrix |
+| Collision | **Floor tile bounds** — `RoomFloorTile` + `MeshFilter` per slab, baked at prefab load |
 | Seed source | `RunCoordinator.Instance.Session.Seed` |
 | Visibility culling | **Out** (jam v1) |
 | Enemy/loot spawn in generator | **Out** — `AI` / `Loot` modules later |
@@ -293,9 +293,9 @@ Port from Cacildes with **KISS** rules. Delivery in four slices: types → solve
 ### Architecture
 
 1. **`DungeonLayoutSolver`** (plain C#) — placement only; no `GameObject` in solver.
-2. **`RoomTemplate` / `PlacedRoom` / `DoorSocket`** — logic types; `RoomTemplate` has one `Bounds Footprint`, not a tile list.
-3. **`BoundsHelper`** — one overlap function (~30 lines).
-4. **`RoomPrefabData`** (MonoBehaviour on prefab) — authored footprint + doors; `OnValidate` from `RoomBounds` collider.
+2. **`RoomTemplate` / `PlacedRoom` / `DoorSocket`** — logic types; `RoomTemplate` has `List<Bounds> FloorTiles`.
+3. **`BoundsHelper`** — per-tile overlap (Cacildes shrink + `Intersects`).
+4. **`RoomPrefabData`** (MonoBehaviour on prefab) — bakes floor tiles + doors from prefab hierarchy.
 5. **`RoomCategoryData`** (ScriptableObject) — prefab pool, side room chance, connector pool.
 6. **`DungeonGenerator`** (thin adapter) — build configs, call solver, instantiate, dead-ends, player spawn. **~80–100 lines target.**
 
@@ -311,10 +311,9 @@ Copy `AlignRooms` and `GetCategoryForIndex` math from Cacildes **verbatim** on f
 ```
 Room (root)
 ├── RoomPrefabData
-├── BoxCollider "RoomBounds"   ← footprint, not trigger
 ├── DoorEntrance               ← empty marker, forward = into room
 ├── DoorExit
-└── Floor (visual only)
+└── Floor*                     ← RoomFloorTile + MeshFilter per slab (required)
 ```
 
 **Room constraints for camera + lock-on:**

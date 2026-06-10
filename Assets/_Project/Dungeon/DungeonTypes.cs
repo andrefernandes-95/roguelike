@@ -39,9 +39,9 @@ namespace AF.Dungeon
         public Vector3 LocalScale = Vector3.one;
 
         /// <summary>
-        /// Local-space AABB of the room footprint (from RoomBounds collider)
+        /// Local-space bounds per floor tile (from RoomFloorTile + MeshFilter).
         /// </summary>
-        public Bounds Footprint;
+        public List<Bounds> FloorTiles = new();
 
         public List<DoorSocket> Entrances = new();
         public List<DoorSocket> Exits = new();
@@ -55,9 +55,9 @@ namespace AF.Dungeon
         {
             RoomTemplate copy = new(Id)
             {
-                LocalScale = LocalScale,
-                Footprint = Footprint
+                LocalScale = LocalScale
             };
+            copy.FloorTiles.AddRange(FloorTiles);
 
             foreach (DoorSocket e in Entrances)
             {

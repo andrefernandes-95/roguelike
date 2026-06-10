@@ -127,10 +127,8 @@ namespace AF.Tests
             // Doors ate center -> rooms overlap on step 1
             RoomTemplate Bad(string id)
             {
-                var room = new RoomTemplate(id)
-                {
-                    Footprint = new Bounds(Vector3.zero, new Vector3(10f, 2f, 10f))
-                };
+                var room = new RoomTemplate(id);
+                room.FloorTiles.Add(new Bounds(Vector3.zero, new Vector3(10f, 2f, 10f)));
                 room.Exits.Add(new DoorSocket(Vector3.zero, Quaternion.identity));
                 room.Entrances.Add(new DoorSocket(Vector3.zero, Quaternion.identity));
                 return room;

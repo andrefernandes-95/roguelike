@@ -4,20 +4,18 @@ using UnityEngine;
 namespace AF.Dungeon
 {
     /// <summary>
-    /// Footprint overlap checks.
-    /// One box per room.
+    /// Floor-tile overlap checks (Cacildes-style). Uses yaw-only rotation for the floor plan.
     /// </summary>
     public static class BoundsHelper
     {
         const float ShrinkXZ = 0.1f;
 
-        public static Bounds ToWorldBounds(Vector3 position, Quaternion rotation, Vector3 scale, Bounds localFootprint)
+        public static Bounds ToWorldBounds(Vector3 position, Quaternion rotation, Vector3 scale, Bounds localTile)
         {
-            Vector3 scaledCenter = Vector3.Scale(localFootprint.center, scale);
-
-            // First rotate the center, then transalte it
-            Vector3 center = position + rotation * scaledCenter;
-            Vector3 scaledExtents = Vector3.Scale(localFootprint.extents, scale);
+            Quaternion yaw = Quaternion.Euler(0f, rotation.eulerAngles.y, 0f);
+            Vector3 scaledCenter = Vector3.Scale(localTile.center, scale);
+            Vector3 center = position + yaw * scaledCenter;
+            Vector3 scaledExtents = Vector3.Scale(localTile.extents, scale);
 
             Vector3 min = new(float.MaxValue, float.MaxValue, float.MaxValue);
             Vector3 max = new(float.MinValue, float.MinValue, float.MinValue);
@@ -29,69 +27,54 @@ namespace AF.Dungeon
                     for (int z = -1; z <= 1; z += 2)
                     {
                         Vector3 corner = new(scaledExtents.x * x, scaledExtents.y * y, scaledExtents.z * z);
-
-                        Vector3 world = center + rotation * corner;
+                        Vector3 world = center + yaw * corner;
                         min = Vector3.Min(min, world);
                         max = Vector3.Max(max, world);
                     }
                 }
             }
 
-            return new Bounds(
-                // Get the center
-                (min + max) / 2,
-                //Get the size
-                max - min);
+            return new Bounds((min + max) * 0.5f, max - min);
         }
 
-        public static Bounds ToWorldBounds(PlacedRoom room)
+        public static List<Bounds> ToWorldTiles(RoomTemplate template, Vector3 position, Quaternion rotation)
         {
-            return ToWorldBounds(room.Position, room.Rotation, room.Template.LocalScale, room.Template.Footprint);
-        }
-
-        public static Bounds ToWorldBounds(RoomTemplate template, Vector3 position, Quaternion rotation)
-        {
-            return ToWorldBounds(position, rotation, template.LocalScale, template.Footprint);
-        }
-
-        public static bool OverlapsAny(Bounds candidate, IReadOnlyList<Bounds> occupied)
-        {
-            Bounds shrunk = ShrinkForTest(candidate);
-            for (int i = 0; i < occupied.Count; i++)
+            var worldTiles = new List<Bounds>(template.FloorTiles.Count);
+            for (int i = 0; i < template.FloorTiles.Count; i++)
             {
-                if (shrunk.Intersects(ShrinkForTest(occupied[i])))
-                {
-                    return true;
-                }
+                worldTiles.Add(ToWorldBounds(position, rotation, template.LocalScale, template.FloorTiles[i]));
             }
 
-            return false;
+            return worldTiles;
         }
 
-        /// <summary>
-        /// True if room fits at position / rotation.
-        /// Appends world footprint to outFootprint when true.
-        /// extraOccupied = bounds already reserved this attempt (connector chain)
-        /// </summary>
         public static bool CanPlace(
             RoomTemplate template,
             Vector3 position,
             Quaternion rotation,
             IReadOnlyList<Bounds> occupied,
             IReadOnlyList<Bounds> extraOccupied,
-            out Bounds worldFootprint
-        )
+            out List<Bounds> worldTiles)
         {
-            worldFootprint = ToWorldBounds(template, position, rotation);
-
-            if (OverlapsAny(worldFootprint, occupied))
+            worldTiles = ToWorldTiles(template, position, rotation);
+            if (worldTiles.Count == 0)
             {
                 return false;
             }
 
-            if (extraOccupied != null && extraOccupied.Count > 0 && OverlapsAny(worldFootprint, extraOccupied))
+            for (int i = 0; i < worldTiles.Count; i++)
             {
-                return false;
+                Bounds shrunkNew = ShrinkForTest(worldTiles[i]);
+
+                if (OverlapsAny(shrunkNew, occupied))
+                {
+                    return false;
+                }
+
+                if (extraOccupied != null && extraOccupied.Count > 0 && OverlapsAny(shrunkNew, extraOccupied))
+                {
+                    return false;
+                }
             }
 
             return true;
@@ -102,21 +85,30 @@ namespace AF.Dungeon
             Vector3 position,
             Quaternion rotation,
             IReadOnlyList<Bounds> occupied,
-            out Bounds worldFootprint
-        )
+            out List<Bounds> worldTiles)
         {
-            return CanPlace(template, position, rotation, occupied, null, out worldFootprint);
+            return CanPlace(template, position, rotation, occupied, null, out worldTiles);
         }
 
-        /// <summary>
-        /// Slightly reduces room bounds so overlap checks are more forgiving and don’t reject valid placements.
-        /// </summary>
+        public static bool OverlapsAny(Bounds candidate, IReadOnlyList<Bounds> occupied)
+        {
+            for (int i = 0; i < occupied.Count; i++)
+            {
+                if (candidate.Intersects(ShrinkForTest(occupied[i])))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         static Bounds ShrinkForTest(Bounds bounds)
         {
             Vector3 size = bounds.size;
             size.x = Mathf.Max(0.01f, size.x - ShrinkXZ);
             size.z = Mathf.Max(0.01f, size.z - ShrinkXZ);
-            size.y = Mathf.Max(1f, size.y);
+            size.y = Mathf.Max(0.5f, size.y);
 
             return new Bounds(bounds.center, size);
         }
