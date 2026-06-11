@@ -1,3 +1,4 @@
+using AF.Core;
 using UnityEngine;
 
 namespace AF.Combat
@@ -13,7 +14,10 @@ namespace AF.Combat
 
         void Awake()
         {
-            execution = new CombatExecution(this, actor, hitbox);
+            IActionAnimator actionAnimator = GetComponent<IActionAnimator>();
+            ILocomotionReadout locomotionReadout = GetComponent<ILocomotionReadout>();
+
+            execution = new CombatExecution(this, actor, hitbox, actionAnimator, locomotionReadout);
         }
 
         void Update()

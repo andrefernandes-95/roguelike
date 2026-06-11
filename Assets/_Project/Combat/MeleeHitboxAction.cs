@@ -7,10 +7,9 @@ namespace AF.Combat
     {
         [Header("Melee")]
         public int damage = 15;
-        public float duration = 0.25f;
 
         [Header("Presentation")]
-        public string animatorTrigger;
+        public string animationName = "LightAttack1";
 
         public override void Begin(CombatExecution ctx)
         {
@@ -19,9 +18,15 @@ namespace AF.Combat
                 return;
             }
 
+            if (ctx.Animator == null
+                || !ctx.Animator.TryPlayState(Animator.StringToHash(animationName), useRootMotion: true))
+            {
+                return;
+            }
+
             ctx.Hitbox.ConfigureDamage(damage);
             ctx.Hitbox.BeginSwing();
-            ctx.Controller.SetActionTimer(duration);
+            ctx.Controller.SetActionTimer(0f);
         }
 
         public override void Tick(CombatExecution ctx, float deltaTime) { }

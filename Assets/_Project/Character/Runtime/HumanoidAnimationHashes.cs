@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace AF.Player
+namespace AF.Character
 {
     public static class HumanoidAnimationHashes
     {
@@ -10,9 +10,8 @@ namespace AF.Player
         public static readonly int Jump = Animator.StringToHash("Jump");
         public static readonly int FreeFall = Animator.StringToHash("FreeFall");
 
-        public static readonly int StateRoll = Animator.StringToHash("Action_Roll");
-        public static readonly int StateBackStep = Animator.StringToHash("Action_BackStep");
-        public static readonly int StateLightAtack01 = Animator.StringToHash("Action_LightAttack_01");
+        public static readonly int StateRoll = Animator.StringToHash("Roll");
+        public static readonly int StateBackStep = Animator.StringToHash("Backstep");
 
     }
 }

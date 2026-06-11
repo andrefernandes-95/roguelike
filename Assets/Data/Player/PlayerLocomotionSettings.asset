@@ -12,9 +12,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 385a7ef2ef190b542bae749c55e99770, type: 3}
   m_Name: PlayerLocomotionSettings
   m_EditorClassIdentifier: AF.Player::AF.Player.PlayerLocomotionSettings
-  moveSpeed: 7
-  rotationSpeed: 12
-  jumpHeight: 1.2
+  moveSpeed: 6.5
+  rotationSpeed: 15
+  jumpHeight: 4
   gravity: -20
   jumpTimeout: 0.25
   groundedStickVelocity: -2

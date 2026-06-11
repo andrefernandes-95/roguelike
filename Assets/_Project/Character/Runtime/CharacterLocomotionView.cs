@@ -1,4 +1,4 @@
-using AF.Player;
+using AF.Character;
 using UnityEngine;
 
 namespace AF.Character

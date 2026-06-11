@@ -4,7 +4,8 @@
   "references": [
     "AF.Core",
     "AF.Stats",
-    "AF.Player"
+    "AF.Player",
+    "AF.Character"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],
