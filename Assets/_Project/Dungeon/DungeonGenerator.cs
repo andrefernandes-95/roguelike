@@ -9,13 +9,14 @@ namespace AF.Dungeon
     {
         const string PlayerSpawnChildName = "PlayerSpawn";
 
+
         [SerializeField] List<RoomCategoryData> layoutSequence = new();
         [SerializeField] int roomSize = 15;
         [SerializeField] RoomCategoryData defaultSideRoomCategory;
         [SerializeField] RoomCategoryData connectorCategory;
         [SerializeField][Range(0f, 1f)] float connectorSpawnChance = 0.3f;
         [SerializeField] GameObject deadEndPrefab;
-        [SerializeField] Transform player;
+        [SerializeField] GameObject playerPrefab;
         [SerializeField] int maxSolveAttempts = 999;
         [SerializeField] int fallbackSeed = 5;
 
@@ -187,7 +188,7 @@ namespace AF.Dungeon
                 return;
             }
 
-            if (player == null)
+            if (playerPrefab == null)
             {
                 Debug.LogWarning("[DungeonGenerator] Player transform not assigned");
                 return;
@@ -200,18 +201,7 @@ namespace AF.Dungeon
                 return;
             }
 
-            CharacterController controller = player.GetComponent<CharacterController>();
-            if (controller != null)
-            {
-                controller.enabled = false;
-            }
-
-            player.SetPositionAndRotation(spawn.position, spawn.rotation);
-
-            if (controller != null)
-            {
-                controller.enabled = true;
-            }
+            Instantiate(playerPrefab, spawn.position, spawn.rotation);
         }
     }
 }

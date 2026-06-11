@@ -53,5 +53,11 @@ namespace AF.Player
         {
             isEnabled = enabled;
         }
+
+        public void Initialize(PlayerInputAdapter playerInputAdapter)
+        {
+            input = playerInputAdapter;
+            target = playerInputAdapter.transform;
+        }
     }
 }

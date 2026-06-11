@@ -1,737 +1,16 @@
-# Combat minimum v2 — unified actions + stat-backed HP
+# Part C — Combat (`AF.Combat` + player adapter)
 
-## Goal
-
-First combat loop with **one pipeline** for all future verbs (light → heavy → spell):
-
-**player light attack (`CombatAction`) → enemy loses HP → enemy dies → contact damage → `RunCoordinator.NotifyPlayerDied()`**
-
-Replaces [combat-minimum.md](combat-minimum.md) Parts B/C. See [combat-architecture-review.md](combat-architecture-review.md) for why.
-
-**Prerequisite:** Player graybox + dungeon generator (or Graybox with player only).
-
----
-
-## Architecture (jam)
-
-```
-AF.Core          PlayerIntent, IPlayerIntentSource
-AF.Stats         StatSheet, ResourcePool, DerivedStats, DamageResolver  (pure C#)
-AF.Combat        CombatAction (SO), CombatController, HealthComponent, hitboxes
-AF.Player        input + motor only — no combat logic
-```
-
-| Cacildes (avoid) | This doc |
-|------------------|----------|
-| `PlayerCombatController` + `CharacterAbilityManager` | **`CombatController` + `CombatAction`** |
-| `HealthPool(int max)` fixed | **`ResourcePool` max from vitality** |
-| `StaminaStatManager` MonoBehaviour | **`ResourcePool` stamina later** (same type) |
-
----
-
-## Roadmap after this
-
-| Doc (later) | Feature |
-|-------------|---------|
-| `combat-stamina.md` | Endurance → stamina pool + regen on `ResourcePool` |
-| `combat-block-dodge.md` | Block + dodge i-frames as `CombatAction` |
-| `combat-combos.md` | `CombatAction.next` chain |
-| `ai-enemy-chase.md` | Enemy uses same `CombatAction` for attacks |
-
----
-
-# Part A — Shared intent (move `PlayerIntent` to Core)
-
-Combat reads input through **Core** so `AF.Combat` never references `AF.Player`.
-
-## Files
-
-```
-Assets/_Project/Core/Runtime/
-├── PlayerIntent.cs          ← MOVE from Player/Runtime (delete old)
-└── IPlayerIntentSource.cs   ← NEW
-
-Assets/_Project/Player/Runtime/
-├── PlayerInputAdapter.cs    ← UPDATE
-└── PlayerIntent.cs          ← DELETE after move
-```
-
----
-
-### `Assets/_Project/Core/Runtime/PlayerIntent.cs`
-
-```csharp
-using UnityEngine;
-
-namespace AF.Core
-{
-    public struct PlayerIntent
-    {
-        public Vector2 Move;
-        public Vector2 Look;
-        public bool Dodge;
-        public bool LightAttack;
-        public bool Block;
-    }
-}
-```
-
----
-
-### `Assets/_Project/Core/Runtime/IPlayerIntentSource.cs`
-
-```csharp
-namespace AF.Core
-{
-    public interface IPlayerIntentSource
-    {
-        PlayerIntent Intent { get; }
-    }
-}
-```
-
----
-
-### `Assets/_Project/Player/Runtime/PlayerInputAdapter.cs`
-
-```csharp
-using AF.Core;
-using UnityEngine;
-
-namespace AF.Player
-{
-    public sealed class PlayerInputAdapter : MonoBehaviour, IPlayerIntentSource
-    {
-        PlayerInputActions actions;
-        bool isEnabled;
-
-        public PlayerIntent Intent { get; private set; }
-
-        void Awake()
-        {
-            actions = new PlayerInputActions();
-        }
-
-        void OnDestroy()
-        {
-            actions?.Dispose();
-        }
-
-        void Update()
-        {
-            if (!isEnabled)
-            {
-                Intent = default;
-                return;
-            }
-
-            Intent = new PlayerIntent
-            {
-                Move = actions.Gameplay.Move.ReadValue<Vector2>(),
-                Look = actions.Gameplay.Look.ReadValue<Vector2>(),
-                Dodge = actions.Gameplay.Dodge.WasPressedThisFrame(),
-                LightAttack = actions.Gameplay.LightAttack.WasPressedThisFrame(),
-                Block = actions.Gameplay.Block.IsPressed()
-            };
-        }
-
-        public void SetInputEnabled(bool enabled)
-        {
-            if (isEnabled == enabled)
-            {
-                return;
-            }
-
-            isEnabled = enabled;
-            if (enabled)
-            {
-                actions.Gameplay.Enable();
-            }
-            else
-            {
-                actions.Gameplay.Disable();
-                Intent = default;
-            }
-        }
-    }
-}
-```
-
----
-
-### `Assets/_Project/Player/Runtime/PlayerMotor.cs`
-
-Add `using AF.Core;` at top. No logic change.
-
----
-
-## Input actions (Unity Editor)
-
-Open `Assets/_Project/Player/Input/PlayerInputActions.inputactions`:
-
-| Action | Type | Keyboard | Gamepad |
-|--------|------|----------|---------|
-| `LightAttack` | Button | `Mouse/leftButton` | `buttonWest` |
-| `Block` | Button | `Keyboard/leftShift` | `leftTrigger` |
-
-Add both to **Gameplay** map. **Save Asset** → regenerate `PlayerInputActions.cs`.
-
----
-
-## Part A checklist
-
-- [ ] `PlayerIntent` in Core; delete `Player/Runtime/PlayerIntent.cs`
-- [ ] `IPlayerIntentSource` + adapter implements it
-- [ ] Input actions added; project compiles
-- [ ] Play: move + dodge still work
-
----
-
-# Part B — Stats (`AF.Stats`)
-
-Pure C#. One modifier path for future equipment.
-
-## Files
-
-```
-Assets/_Project/Stats/
-├── AF.Stats.asmdef
-├── StatId.cs
-├── StatProfile.cs
-├── StatModifier.cs
-├── StatSheet.cs
-├── DerivedStats.cs
-├── ResourcePool.cs
-├── DamageTypes.cs
-├── DamageResolver.cs
-└── Tests/
-    ├── AF.Stats.Tests.asmdef
-    ├── StatSheetTests.cs
-    ├── ResourcePoolTests.cs
-    ├── DerivedStatsTests.cs
-    └── DamageResolverTests.cs
-```
-
-Tests are **colocated** with the feature assembly (same pattern as `Dungeon/Tests/`). No monolithic `AF.Tests.EditMode`.
-
----
-
-### `Assets/_Project/Stats/AF.Stats.asmdef`
-
-```json
-{
-    "name": "AF.Stats",
-    "rootNamespace": "AF.Stats",
-    "references": [
-        "AF.Core"
-    ],
-    "includePlatforms": [],
-    "excludePlatforms": [],
-    "allowUnsafeCode": false,
-    "overrideReferences": false,
-    "precompiledReferences": [],
-    "autoReferenced": true,
-    "defineConstraints": [],
-    "versionDefines": [],
-    "noEngineReferences": false
-}
-```
-
----
-
-### `Assets/_Project/Stats/Tests/AF.Stats.Tests.asmdef`
-
-```json
-{
-    "name": "AF.Stats.Tests",
-    "rootNamespace": "AF.Tests.Stats",
-    "references": [
-        "AF.Stats",
-        "UnityEngine.TestRunner",
-        "UnityEditor.TestRunner"
-    ],
-    "includePlatforms": [
-        "Editor"
-    ],
-    "excludePlatforms": [],
-    "allowUnsafeCode": false,
-    "overrideReferences": true,
-    "precompiledReferences": [
-        "nunit.framework.dll"
-    ],
-    "autoReferenced": false,
-    "defineConstraints": [
-        "UNITY_INCLUDE_TESTS"
-    ],
-    "versionDefines": [],
-    "noEngineReferences": false
-}
-```
-
----
-
-### `Assets/_Project/Stats/StatId.cs`
-
-```csharp
-namespace AF.Stats
-{
-    public enum StatId
-    {
-        Vitality,
-        Endurance
-    }
-}
-```
-
----
-
-### `Assets/_Project/Stats/StatProfile.cs`
-
-```csharp
-using System;
-
-namespace AF.Stats
-{
-    [Serializable]
-    public struct StatProfile
-    {
-        public int Vitality;
-        public int Endurance;
-
-        public static StatProfile DefaultPlayer => new() { Vitality = 10, Endurance = 10 };
-        public static StatProfile DefaultEnemy => new() { Vitality = 3, Endurance = 0 };
-    }
-}
-```
-
----
-
-### `Assets/_Project/Stats/StatModifier.cs`
-
-```csharp
-namespace AF.Stats
-{
-    public readonly struct StatModifier
-    {
-        public StatId Stat { get; }
-        public int FlatDelta { get; }
-
-        public StatModifier(StatId stat, int flatDelta)
-        {
-            Stat = stat;
-            FlatDelta = flatDelta;
-        }
-    }
-}
-```
-
----
-
-### `Assets/_Project/Stats/StatSheet.cs`
-
-```csharp
-using System;
-using System.Collections.Generic;
-
-namespace AF.Stats
-{
-    public sealed class StatSheet
-    {
-        readonly Dictionary<StatId, int> baseLevels = new();
-        readonly Dictionary<string, List<StatModifier>> modifiersBySource = new();
-
-        public StatSheet(StatProfile profile)
-        {
-            baseLevels[StatId.Vitality] = profile.Vitality;
-            baseLevels[StatId.Endurance] = profile.Endurance;
-        }
-
-        public int GetTotal(StatId stat)
-        {
-            int total = baseLevels.TryGetValue(stat, out int baseLevel) ? baseLevel : 0;
-
-            foreach (List<StatModifier> list in modifiersBySource.Values)
-            {
-                for (int i = 0; i < list.Count; i++)
-                {
-                    if (list[i].Stat == stat)
-                    {
-                        total += list[i].FlatDelta;
-                    }
-                }
-            }
-
-            return Math.Max(1, total);
-        }
-
-        public void SetBase(StatId stat, int level)
-        {
-            baseLevels[stat] = level;
-        }
-
-        public void AddModifiers(string sourceId, IReadOnlyList<StatModifier> modifiers)
-        {
-            if (string.IsNullOrEmpty(sourceId) || modifiers == null || modifiers.Count == 0)
-            {
-                return;
-            }
-
-            if (!modifiersBySource.TryGetValue(sourceId, out List<StatModifier> list))
-            {
-                list = new List<StatModifier>();
-                modifiersBySource[sourceId] = list;
-            }
-
-            for (int i = 0; i < modifiers.Count; i++)
-            {
-                list.Add(modifiers[i]);
-            }
-        }
-
-        public void RemoveModifiers(string sourceId)
-        {
-            modifiersBySource.Remove(sourceId);
-        }
-    }
-}
-```
-
----
-
-### `Assets/_Project/Stats/DerivedStats.cs`
-
-```csharp
-namespace AF.Stats
-{
-    /// <summary>
-    /// Jam formulas. Replace with data later without changing ResourcePool/HealthComponent.
-    /// </summary>
-    public static class DerivedStats
-    {
-        public const int HealthPerVitality = 10;
-        public const int StaminaPerEndurance = 5;
-
-        public static int MaxHealth(StatSheet sheet)
-        {
-            return sheet.GetTotal(StatId.Vitality) * HealthPerVitality;
-        }
-
-        public static int MaxStamina(StatSheet sheet)
-        {
-            return sheet.GetTotal(StatId.Endurance) * StaminaPerEndurance;
-        }
-    }
-}
-```
-
----
-
-### `Assets/_Project/Stats/ResourcePool.cs`
-
-```csharp
-using System;
-
-namespace AF.Stats
-{
-    public sealed class ResourcePool
-    {
-        public int Max { get; private set; }
-        public int Current { get; private set; }
-        public bool IsEmpty => Current <= 0;
-
-        public ResourcePool(int max)
-        {
-            if (max <= 0)
-            {
-                throw new ArgumentOutOfRangeException(nameof(max));
-            }
-
-            Max = max;
-            Current = max;
-        }
-
-        public void RefreshMax(int newMax)
-        {
-            if (newMax <= 0)
-            {
-                throw new ArgumentOutOfRangeException(nameof(newMax));
-            }
-
-            Max = newMax;
-            Current = Math.Min(Current, Max);
-        }
-
-        public void Fill()
-        {
-            Current = Max;
-        }
-
-        public bool TrySpend(int amount)
-        {
-            if (IsEmpty || amount <= 0 || Current < amount)
-            {
-                return false;
-            }
-
-            Current -= amount;
-            return true;
-        }
-
-        public DamageResult ApplyDamage(int amount)
-        {
-            if (IsEmpty || amount <= 0)
-            {
-                return DamageResult.None;
-            }
-
-            int dealt = Math.Min(amount, Current);
-            Current -= dealt;
-            return new DamageResult(dealt, Current, Current <= 0);
-        }
-    }
-}
-```
-
----
-
-### `Assets/_Project/Stats/DamageTypes.cs`
-
-```csharp
-namespace AF.Stats
-{
-    public readonly struct DamageRequest
-    {
-        public int Amount { get; }
-
-        public DamageRequest(int amount)
-        {
-            Amount = amount;
-        }
-    }
-
-    public readonly struct DamageResult
-    {
-        public int DamageDealt { get; }
-        public int Remaining { get; }
-        public bool Depleted { get; }
-
-        public DamageResult(int damageDealt, int remaining, bool depleted)
-        {
-            DamageDealt = damageDealt;
-            Remaining = remaining;
-            Depleted = depleted;
-        }
-
-        public static DamageResult None => new(0, -1, false);
-    }
-}
-```
-
----
-
-### `Assets/_Project/Stats/DamageResolver.cs`
-
-```csharp
-namespace AF.Stats
-{
-    public static class DamageResolver
-    {
-        public static DamageResult Resolve(ResourcePool pool, DamageRequest request)
-        {
-            if (pool == null)
-            {
-                return DamageResult.None;
-            }
-
-            return pool.ApplyDamage(request.Amount);
-        }
-    }
-}
-```
-
----
-
-### `Assets/_Project/Stats/Tests/StatSheetTests.cs`
-
-```csharp
-using AF.Stats;
-using NUnit.Framework;
-
-namespace AF.Tests.Stats
-{
-    public class StatSheetTests
-    {
-        [Test]
-        public void GetTotal_UsesBaseLevel()
-        {
-            var sheet = new StatSheet(new StatProfile { Vitality = 10, Endurance = 8 });
-
-            Assert.AreEqual(10, sheet.GetTotal(StatId.Vitality));
-            Assert.AreEqual(8, sheet.GetTotal(StatId.Endurance));
-        }
-
-        [Test]
-        public void AddModifiers_IncreasesTotal()
-        {
-            var sheet = new StatSheet(StatProfile.DefaultPlayer);
-
-            sheet.AddModifiers("ring_01", new[] { new StatModifier(StatId.Vitality, 3) });
-
-            Assert.AreEqual(13, sheet.GetTotal(StatId.Vitality));
-        }
-
-        [Test]
-        public void RemoveModifiers_RestoresTotal()
-        {
-            var sheet = new StatSheet(StatProfile.DefaultPlayer);
-            sheet.AddModifiers("ring_01", new[] { new StatModifier(StatId.Vitality, 5) });
-
-            sheet.RemoveModifiers("ring_01");
-
-            Assert.AreEqual(10, sheet.GetTotal(StatId.Vitality));
-        }
-    }
-}
-```
-
----
-
-### `Assets/_Project/Stats/Tests/DerivedStatsTests.cs`
-
-```csharp
-using AF.Stats;
-using NUnit.Framework;
-
-namespace AF.Tests.Stats
-{
-    public class DerivedStatsTests
-    {
-        [Test]
-        public void MaxHealth_ScalesWithVitality()
-        {
-            var sheet = new StatSheet(new StatProfile { Vitality = 10, Endurance = 0 });
-
-            Assert.AreEqual(100, DerivedStats.MaxHealth(sheet));
-        }
-
-        [Test]
-        public void MaxHealth_IncludesEquipmentModifier()
-        {
-            var sheet = new StatSheet(StatProfile.DefaultPlayer);
-            sheet.AddModifiers("gear", new[] { new StatModifier(StatId.Vitality, 2) });
-
-            Assert.AreEqual(120, DerivedStats.MaxHealth(sheet));
-        }
-    }
-}
-```
-
----
-
-### `Assets/_Project/Stats/Tests/ResourcePoolTests.cs`
-
-```csharp
-using AF.Stats;
-using NUnit.Framework;
-
-namespace AF.Tests.Stats
-{
-    public class ResourcePoolTests
-    {
-        [Test]
-        public void ApplyDamage_ReducesCurrent()
-        {
-            var pool = new ResourcePool(100);
-
-            DamageResult result = pool.ApplyDamage(30);
-
-            Assert.AreEqual(30, result.DamageDealt);
-            Assert.AreEqual(70, result.Remaining);
-            Assert.IsFalse(result.Depleted);
-        }
-
-        [Test]
-        public void ApplyDamage_ToZero_SetsDepleted()
-        {
-            var pool = new ResourcePool(25);
-
-            DamageResult result = pool.ApplyDamage(25);
-
-            Assert.IsTrue(result.Depleted);
-            Assert.IsTrue(pool.IsEmpty);
-        }
-
-        [Test]
-        public void RefreshMax_ClampsCurrent()
-        {
-            var pool = new ResourcePool(100);
-            pool.ApplyDamage(40);
-
-            pool.RefreshMax(50);
-
-            Assert.AreEqual(50, pool.Max);
-            Assert.AreEqual(50, pool.Current);
-        }
-
-        [Test]
-        public void TrySpend_FailsWhenInsufficient()
-        {
-            var pool = new ResourcePool(10);
-
-            Assert.IsFalse(pool.TrySpend(15));
-            Assert.AreEqual(10, pool.Current);
-        }
-    }
-}
-```
-
----
-
-### `Assets/_Project/Stats/Tests/DamageResolverTests.cs`
-
-```csharp
-using AF.Stats;
-using NUnit.Framework;
-
-namespace AF.Tests.Stats
-{
-    public class DamageResolverTests
-    {
-        [Test]
-        public void Resolve_DelegatesToPool()
-        {
-            var pool = new ResourcePool(50);
-
-            DamageResult result = DamageResolver.Resolve(pool, new DamageRequest(15));
-
-            Assert.AreEqual(15, result.DamageDealt);
-            Assert.AreEqual(35, pool.Current);
-        }
-    }
-}
-```
-
----
-
-## Part B checklist
-
-- [ ] `AF.Stats` asmdef + all runtime scripts
-- [ ] `Stats/Tests/AF.Stats.Tests.asmdef` + 4 test files
-- [ ] Test Runner → Edit Mode → stat tests green
-
----
-
-# Part C — Combat (`AF.Combat`)
-
-One controller. Light attack is a `CombatAction` asset — same type heavies/spells use later.
+One **executor** (`CombatController`) for player and AI. Jam light attack = `MeleeHitboxAction` asset.
 
 ## Files
 
 ```
 Assets/_Project/Combat/
 ├── AF.Combat.asmdef
-├── CombatAction.cs
-├── CombatController.cs
+├── CombatAction.cs              ← abstract base
+├── MeleeHitboxAction.cs         ← jam light attack
+├── CombatExecution.cs
+├── CombatController.cs          ← entity-agnostic; no input
 ├── CombatActor.cs
 ├── HealthComponent.cs
 ├── Hurtbox.cs
@@ -740,8 +19,11 @@ Assets/_Project/Combat/
 ├── ContactDamage.cs
 └── DeathCleanup.cs
 
+Assets/_Project/Player/Runtime/
+└── PlayerCombatInput.cs         ← reads intent, calls CombatController
+
 Assets/Data/Combat/
-└── LightAttack_Unarmed.asset    ← create in Editor after scripts compile
+└── LightAttack_Unarmed.asset    ← MeleeHitboxAction, create in Editor
 ```
 
 ---
@@ -750,21 +32,18 @@ Assets/Data/Combat/
 
 ```json
 {
-    "name": "AF.Combat",
-    "rootNamespace": "AF.Combat",
-    "references": [
-        "AF.Core",
-        "AF.Stats"
-    ],
-    "includePlatforms": [],
-    "excludePlatforms": [],
-    "allowUnsafeCode": false,
-    "overrideReferences": false,
-    "precompiledReferences": [],
-    "autoReferenced": true,
-    "defineConstraints": [],
-    "versionDefines": [],
-    "noEngineReferences": false
+  "name": "AF.Combat",
+  "rootNamespace": "AF.Combat",
+  "references": ["AF.Core", "AF.Stats"],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
 }
 ```
 
@@ -777,21 +56,95 @@ using UnityEngine;
 
 namespace AF.Combat
 {
-    [CreateAssetMenu(fileName = "CombatAction", menuName = "AF/Combat/Combat Action")]
-    public sealed class CombatAction : ScriptableObject
+    /// <summary>
+    /// Data + behavior for one combat verb. Subclass per behavior family (melee, projectile, buff, …).
+    /// Cacildes equivalent: abstract Ability — not a single sealed SO with every field.
+    /// </summary>
+    public abstract class CombatAction : ScriptableObject
     {
         [Header("Costs (jam: leave stamina 0)")]
         public int staminaCost;
 
-        [Header("Effect")]
-        public int damage = 15;
-        public float duration = 0.25f;
-
         [Header("Combo (later)")]
         public CombatAction next;
 
+        public virtual bool CanExecute(CombatExecution ctx)
+        {
+            return ctx != null && ctx.Controller != null && !ctx.Controller.IsBusy;
+        }
+
+        public abstract void Begin(CombatExecution ctx);
+        public abstract void Tick(CombatExecution ctx, float deltaTime);
+        public abstract void End(CombatExecution ctx);
+    }
+}
+```
+
+---
+
+### `Assets/_Project/Combat/CombatExecution.cs`
+
+```csharp
+namespace AF.Combat
+{
+    /// <summary>
+    /// Per-run context for the active action. Passed into CombatAction lifecycle methods.
+    /// </summary>
+    public sealed class CombatExecution
+    {
+        public CombatController Controller { get; }
+        public CombatActor Actor { get; }
+        public Hitbox Hitbox { get; }
+
+        public CombatExecution(CombatController controller, CombatActor actor, Hitbox hitbox)
+        {
+            Controller = controller;
+            Actor = actor;
+            Hitbox = hitbox;
+        }
+    }
+}
+```
+
+---
+
+### `Assets/_Project/Combat/MeleeHitboxAction.cs`
+
+```csharp
+using UnityEngine;
+
+namespace AF.Combat
+{
+    [CreateAssetMenu(fileName = "MeleeHitboxAction", menuName = "AF/Combat/Melee Hitbox Action")]
+    public sealed class MeleeHitboxAction : CombatAction
+    {
+        [Header("Melee")]
+        public int damage = 15;
+        public float duration = 0.25f;
+
         [Header("Presentation (optional jam)")]
         public string animatorTrigger;
+
+        public override void Begin(CombatExecution ctx)
+        {
+            if (ctx.Hitbox == null)
+            {
+                return;
+            }
+
+            ctx.Hitbox.ConfigureDamage(damage);
+            ctx.Hitbox.BeginSwing();
+            ctx.Controller.SetActionTimer(duration);
+        }
+
+        public override void Tick(CombatExecution ctx, float deltaTime)
+        {
+        }
+
+        public override void End(CombatExecution ctx)
+        {
+            ctx.Hitbox?.EndSwing();
+        }
     }
 }
 ```
@@ -911,76 +264,125 @@ namespace AF.Combat
 ### `Assets/_Project/Combat/CombatController.cs`
 
 ```csharp
-using AF.Core;
 using UnityEngine;
 
 namespace AF.Combat
 {
     /// <summary>
-    /// Single combat executor. Every player verb is a CombatAction asset.
+    /// Shared combat executor for player and AI. Does not read input.
     /// </summary>
     public sealed class CombatController : MonoBehaviour
     {
-        [SerializeField] CombatAction lightAttack;
+        [SerializeField] CombatActor actor;
         [SerializeField] Hitbox hitbox;
 
-        IPlayerIntentSource intentSource;
+        CombatExecution execution;
         CombatAction activeAction;
         float actionTimer;
-        bool isExecuting;
 
         void Awake()
         {
-            intentSource = GetComponent<IPlayerIntentSource>();
+            execution = new CombatExecution(this, actor, hitbox);
         }
 
         void Update()
         {
-            if (intentSource == null || hitbox == null)
+            if (!IsBusy)
             {
                 return;
             }
 
-            if (isExecuting)
-            {
-                TickActiveAction();
-                return;
-            }
-
-            if (intentSource.Intent.LightAttack && lightAttack != null)
-            {
-                TryStartAction(lightAttack);
-            }
-        }
-
-        void TickActiveAction()
-        {
             actionTimer -= Time.deltaTime;
+            activeAction.Tick(execution, Time.deltaTime);
+
             if (actionTimer <= 0f)
             {
-                hitbox.EndSwing();
-                isExecuting = false;
-                activeAction = null;
+                EndActiveAction();
             }
         }
 
-        void TryStartAction(CombatAction action)
+        /// <summary>Called by PlayerCombatInput, AI states, scripts, etc.</summary>
+        public bool TryStart(CombatAction action)
         {
-            if (action == null || isExecuting)
+            if (action == null || IsBusy)
+            {
+                return false;
+            }
+
+            if (!action.CanExecute(execution))
+            {
+                return false;
+            }
+
+            // Stamina gate later: actor resource pools + action.staminaCost
+
+            activeAction = action;
+            activeAction.Begin(execution);
+            return true;
+        }
+
+        public void SetActionTimer(float duration)
+        {
+            actionTimer = duration;
+        }
+
+        void EndActiveAction()
+        {
+            activeAction?.End(execution);
+            activeAction = null;
+            actionTimer = 0f;
+        }
+
+        public bool IsBusy => activeAction != null;
+    }
+}
+```
+
+---
+
+### `Assets/_Project/Player/Runtime/PlayerCombatInput.cs`
+
+Add `"AF.Combat"` to `AF.Player.asmdef` references.
+
+```csharp
+using AF.Combat;
+using AF.Core;
+using UnityEngine;
+
+namespace AF.Player
+{
+    /// <summary>
+    /// Player-only: maps PlayerIntent → CombatController.TryStart.
+    /// AI uses its own adapter; never put input reads on CombatController.
+    /// </summary>
+    public sealed class PlayerCombatInput : MonoBehaviour
+    {
+        [SerializeField] CombatController combat;
+        [SerializeField] MeleeHitboxAction lightAttack;
+
+        IPlayerIntentSource intentSource;
+
+        void Awake()
+        {
+            intentSource = GetComponent<IPlayerIntentSource>();
+            if (combat == null)
+            {
+                combat = GetComponent<CombatController>();
+            }
+        }
+
+        void Update()
+        {
+            if (intentSource == null || combat == null || lightAttack == null)
             {
                 return;
             }
 
-            // Stamina gate later: ResourcePool.TrySpend(action.staminaCost)
-
-            activeAction = action;
-            isExecuting = true;
-            actionTimer = action.duration;
-            hitbox.ConfigureForAction(action);
-            hitbox.BeginSwing();
+            if (intentSource.Intent.LightAttack)
+            {
+                combat.TryStart(lightAttack);
+            }
         }
-
-        public bool IsExecuting => isExecuting;
     }
 }
 ```
@@ -1031,9 +433,9 @@ namespace AF.Combat
         int damage = 15;
         readonly HashSet<Hurtbox> hitThisSwing = new();
 
-        public void ConfigureForAction(CombatAction action)
+        public void ConfigureDamage(int amount)
         {
-            damage = action != null ? action.damage : 0;
+            damage = amount;
         }
 
         public void BeginSwing()
@@ -1202,7 +604,7 @@ namespace AF.Combat
 ## Create `LightAttack_Unarmed` asset
 
 1. Create folder `Assets/Data/Combat/`
-2. Right-click → **Create → AF → Combat → Combat Action**
+2. Right-click → **Create → AF → Combat → Melee Hitbox Action**
 3. Name: `LightAttack_Unarmed`
 4. Set **Damage** = `15`, **Duration** = `0.25`, **Stamina Cost** = `0`
 
@@ -1214,17 +616,18 @@ namespace AF.Combat
 Player
 ├── ... existing motor / input / camera / control gate ...
 ├── CombatActor              baseProfile: Vitality 10, Endurance 10
-├── HealthComponent          combatActor → CombatActor (no fallback needed)
+├── HealthComponent          combatActor → CombatActor
 ├── Hurtbox                  ownerRoot = Player, health → HealthComponent
 ├── PlayerDeathBridge        health → HealthComponent
-├── CombatController         lightAttack → LightAttack_Unarmed, hitbox → AttackHitbox
+├── CombatController         actor → CombatActor, hitbox → AttackHitbox
+├── PlayerCombatInput        combat → CombatController, lightAttack → LightAttack_Unarmed
 └── AttackHitbox             (child, inactive by default)
     ├── BoxCollider          Is Trigger, ~1×1×1.5 in front of player
     └── Hitbox               ownerRoot = Player
 ```
 
-- `PlayerInputAdapter` already on Player → `CombatController` resolves `IPlayerIntentSource` via `GetComponent`.
-- **Do not** add `AF.Player` reference to `AF.Combat` asmdef.
+- `PlayerInputAdapter` + `PlayerCombatInput` on Player — combat assembly stays input-agnostic.
+- Add **`AF.Combat`** to `AF.Player.asmdef` (Player → Combat is OK; Combat must not reference Player).
 
 ---
 
@@ -1249,7 +652,7 @@ Enemy_Graybox
 2. **Left click** — enemy takes damage; disables at 0 HP
 3. Walk into enemy — player HP drops (100 max from vitality 10)
 4. Player dies at 0 → `NotifyPlayerDied` fires
-5. Console: no null refs on `IPlayerIntentSource` / `CombatController`
+5. Console: no null refs on `PlayerCombatInput` / `CombatController`
 
 ---
 
@@ -1270,7 +673,7 @@ Test Runner → run:
 - [ ] Part B: `AF.Stats` + 4 test fixtures green
 - [ ] Part C: `AF.Combat` + `LightAttack_Unarmed` asset
 - [ ] Part D: player + enemy wired
-- [ ] Light attack kills enemy via `CombatController` (not a separate melee script)
+- [ ] Light attack kills enemy via `PlayerCombatInput` → `CombatController.TryStart`
 - [ ] Player max HP = vitality × 10
 - [ ] Contact damage → player death path
 
@@ -1278,16 +681,16 @@ Test Runner → run:
 
 ## Asmdef summary
 
-| Assembly | References |
-|----------|------------|
-| `AF.Core` | — |
-| `AF.Player` | `AF.Core` |
-| `AF.Stats` | `AF.Core` |
-| `AF.Combat` | `AF.Core`, `AF.Stats` |
-| `AF.Stats.Tests` | `AF.Stats`, test runners (Editor) |
-| `AF.Dungeon.Tests` | `AF.Dungeon`, test runners (Editor) |
+| Assembly           | References                           |
+| ------------------ | ------------------------------------ |
+| `AF.Core`          | —                                    |
+| `AF.Player`        | `AF.Core`, `AF.Combat`, Input System |
+| `AF.Stats`         | `AF.Core`                            |
+| `AF.Combat`        | `AF.Core`, `AF.Stats`                |
+| `AF.Stats.Tests`   | `AF.Stats`, test runners (Editor)    |
+| `AF.Dungeon.Tests` | `AF.Dungeon`, test runners (Editor)  |
 
-**Never** `AF.Combat` → `AF.Player` or `AF.Player` → `AF.Combat`.
+**Never** `AF.Combat` → `AF.Player`. Player → Combat is allowed for thin adapters (`PlayerCombatInput`).
 
 ### Dungeon tests (done)
 

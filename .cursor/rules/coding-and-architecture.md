@@ -4,17 +4,52 @@ alwaysApply: true
 
 # AF — Agent & Architecture Rules
 
-> Soulslike combat + roguelike runs. **Indie game jam scope.**
-> Reference project: `Cacildes Adventure 2` (inspiration only — do not copy structure wholesale).
+> Soulslike combat + roguelike runs — **Cacildes Adventure 2 rebuilt with clean architecture.**
+> Reference: `Cacildes Adventure 2` — **gameplay and domain lessons**, not file layout or class design.
 > Unity **6000.3**, URP, **New Input System**, **UI Toolkit**, 3rd-person camera + lock-on.
 
 ---
 
 ## 1. Mission
 
-Build a **playable jam game**, not a platform for every future feature.
+Build the **full game Cacildes was aiming at**, with **simpler, scalable code** than the original.
 
-Every file, class, and system must earn its place in a **1–2 week** scope. When in doubt, cut scope and keep the code dumb.
+- **Ship in vertical slices** (boot → run → fight → die/win → meta) — but each slice must use the **final architecture**, not throwaway jam shortcuts.
+- **Defer content**, not structure. Missing a spell type is fine; duplicating combat pipelines because “we’ll fix it later” is not.
+- Every system should still be explainable in one sentence. Simple code ≠ minimal types; it means **one clear path** per concern.
+
+### What “better than Cacildes” means
+
+| Copy from Cacildes | Do **not** copy from Cacildes |
+|--------------------|-------------------------------|
+| Domain (runs, dungeons, soulslike verbs, SO data) | `CharacterBaseManager`, `PlayerManager`, god `SaveManager` |
+| Algorithms that worked (`DungeonLayoutSolver`, door snap) | Split combat (lights vs abilities), dual stat modifier stacks |
+| Feature set as **north star** | Folder layout, component wiring, event bus |
+
+---
+
+## 1b. Agent behavior — push back on architecture
+
+Agents **must challenge** proposals (user’s or their own) when they repeat Cacildes failure modes or add complexity without scaling benefit.
+
+**Push back when you see:**
+
+- A new `*Manager` with 8+ serialized dependencies or “and also” responsibilities
+- Player-only logic on a type that AI will need (`CombatController` reading input)
+- A second pipeline for the same verb (melee controller **and** ability manager)
+- Stats/attributes/equipment modeled as **two modifier systems**
+- “Jam shortcut” / “we’ll refactor later” for **core** systems (combat, stats, saves, input)
+- Porting Cacildes class names or structure “because it worked there”
+
+**Instead, propose:**
+
+- Plain C# logic + thin Unity adapter (dungeon solver pattern)
+- **One executor, many data types** (abstract `CombatAction` subclasses; one `CombatController`)
+- **One modifier path** (`StatSheet` → derived max → `ResourcePool`)
+- **Intent in, commands out** — player adapter vs AI adapter, shared executor
+- Explicit tradeoffs in writing before delivering `docs/code/*.md`
+
+**Tone:** Direct and constructive. “Cacildes did X; here’s a simpler model that scales to Y.”
 
 ---
 
@@ -65,32 +100,42 @@ Write for your **dumber future self** at 2 AM before a build.
 | Plain C# for rules & state                                    | Business logic in `Update()`                                          |
 | Explicit data flow                                            | Global string events (`EventManager` + `ON_*` constants)              |
 | Serialize references in the Inspector                         | `FindObjectOfType` / `FindAnyObjectByType` at runtime                 |
-| Copy patterns that worked in Cacildes (`DungeonLayoutSolver`) | Copy patterns that rotted (40-field managers, 700-line saves)         |
+| Copy **algorithms** that worked in Cacildes (`DungeonLayoutSolver`) | Copy **structure** that rotted (40-field managers, 700-line saves) |
+| Design for the **full** combat/stats/save model up front | “Jam version” that forks player vs AI or light vs heavy pipelines |
 
 **The dumb code test:** If you cannot explain what a class does in one sentence without "and also", split it.
 
-**The jam test:** If a system is not needed for **boot → new run → fight → die or win → meta reward → repeat**, it does not get built yet.
+**The slice test:** Only **implement** what the current milestone needs — but **design** types and boundaries for the full game. No architectural dead ends.
+
+**The Cacildes test:** Before porting a pattern, name what was wrong in the original and what replaces it here.
 
 ---
 
 ## 4. Lessons from Cacildes (read before writing code)
 
-### Keep (proven value)
+### Keep — domain & algorithms
 
-- **`DungeonLayoutSolver`** — pure C# layout logic; Unity adapter (`DungeonGenerator`) only instantiates results. **This is the template for every feature.**
-- **UI Toolkit** — `UIDocument` + UXML for menus; keyboard/gamepad via focusable elements.
-- **Lock-on + third-person camera** — separate concerns; lock-on swaps camera/strafe mode, does not own combat math.
-- **`PlayerComponentManager` idea** — enable/disable control groups — but implement as a thin **control gate**, not a second god object.
-- **ScriptableObjects for config** — weapons, room categories, loot tables, game tuning.
+- **Run lifecycle** as first-class (`RunStateMachine`), not `isRoguelike` on a `Game` SO.
+- **`DungeonLayoutSolver` pattern** — pure C# logic; `DungeonGenerator` only adapts to Unity. **Template for every feature.**
+- **ScriptableObjects for data** — weapons, room categories, `CombatAction` subclasses, loot tables.
+- **UI Toolkit** — UXML/USS + presenters; keyboard/gamepad focus.
+- **Lock-on + third-person camera** — separate from combat math.
+- **Abstract `Ability` with subclasses** — right *idea*; wrong *wiring* (see Reject).
 
-### Reject (why it became unmaintainable)
+### Reject — and what we do instead
 
-- **`PlayerManager` / `CharacterBaseManager`** — dozens of public `[SerializeField]` cross-refs; `ResetStates()` calls 20+ subsystems.
-- **`SaveManager`** — knows every database, player, quest, bonfire, fade, notification; 700+ lines.
-- **`Game` ScriptableObject** — player cosmetics, world flags, roguelike toggle, equipment defaults in one asset.
-- **TigerForge `EventManager`** — stringly-typed broadcast; impossible to trace who listens.
-- **Roguelike bolted onto soulslike** — `isRoguelike` flag on `Game` instead of a first-class run lifecycle.
-- **Monolithic Cacildes `Scripts/` folder** — hundreds of files, no asmdefs. **This project uses `AF.*` namespaces with one asmdef per feature** — not a return to the old monolith.
+| Cacildes problem | Better AF shape |
+|------------------|-----------------|
+| `CharacterBaseManager` / `PlayerManager` — 20+ refs, `ResetStates()` cascade | **Entity composition** — small components; `PlayerControlGate` enables/disables groups |
+| `PlayerCombatController` + `CharacterAbilityManager` — two pipelines | **`CombatController.TryStart(CombatAction)`** — one executor; `PlayerCombatInput` vs AI driver |
+| `StatsController` + `AttributeController` + per-resource managers | **`StatSheet` → `DerivedStats` → `ResourcePool`** — one modifier path |
+| `StaminaStatManager` / `ManaManager` separate from attributes | Same **`ResourcePool`** type; regen policy per resource, max from stats |
+| `SaveManager` knows everything | **Per-domain save ports** + orchestrator; no 700-line god file |
+| TigerForge `EventManager` | **Typed events** on owning types, or Core interfaces — traceable |
+| Light attacks bypass `Ability` SOs | **Every combat verb is a `CombatAction` subclass** — including basic melee |
+| Monolithic `Scripts/` | **`AF.*` asmdefs** per feature, tests colocated in `Feature/Tests/` |
+
+**Default stance:** Cacildes is a **requirements doc** and **anti-pattern catalog**, not a codebase to mirror.
 
 ---
 
@@ -107,7 +152,7 @@ Assets/_Project/
 ├── AI/                   # Enemy behaviour, perception, state machines
 ├── Dungeon/              # Procedural layout solver + room spawning adapter
 ├── Loot/                 # Drops, chests, run-scoped inventory
-├── Meta/                 # Persistent unlocks between runs (jam-minimal)
+├── Meta/                 # Persistent unlocks between runs
 ├── UI/                   # UXML, USS, UIDocument presenters
 └── Editor/               # Inspectors, debug tools (Editor asmdef only)
 ```
@@ -214,7 +259,7 @@ Implement as plain C# `RunStateMachine`. One MonoBehaviour adapter (`RunCoordina
 | ----------------------------------------- | ---------------------------------------------------- |
 | `RunStateMachine`                         | States, transitions, run seed, floor index           |
 | `RunConfig` / `RunSession` (SO or struct) | Per-run data: seed, difficulty, elapsed time         |
-| `MetaProfile` (plain C# + save adapter)   | Persistent unlocks (jam: 1 currency, 3 upgrades max) |
+| `MetaProfile` (plain C# + save adapter)   | Persistent unlocks between runs |
 | `ISceneFlow`                              | Load/unload dungeon, menu, bootstrap                 |
 | `IPlayerSpawn`                            | Interface only — implementation in `Player`          |
 | `GameBootstrap`                           | Entry point; wires refs from Inspector               |
@@ -254,23 +299,54 @@ public struct PlayerIntent
     public bool LightAttack;
     public bool LockOn;
     public bool LockOnSwitch;
-    // jam scope: keep this list short
 }
 ```
 
-Combat reads `PlayerIntent` from an interface (`IPlayerIntentSource`) defined in `Core` or `Combat`, implemented in `Player`.
+`PlayerIntent` lives in **`AF.Core`**. `IPlayerIntentSource` implemented by `PlayerInputAdapter` in `AF.Player`.
 
-**Do not** reference `PlayerCombatController`, `PlayerDodgeController`, etc. from a single `PlayerManager` — each is its own component; coordination goes through intent + events.
+**Do not** recreate `PlayerManager` / `PlayerCombatController`. Player = motor + camera + input + **thin adapters** that call into `Combat` / `Stats`.
 
 ---
 
-## 9. Combat & Stats (stub until Core + Player move)
+## 9. Combat & Stats — target architecture (not a stub)
 
-- **`Stats`**: `StatSheet`, `StatModifier`, resource pools. Pure math.
-- **`Combat`**: `DamageRequest` → `DamageResolver` → `DamageResult`. Adapters apply results to health components.
-- Weapons/abilities are **data** (ScriptableObject) + **executor** (plain C#), not 800-line controllers.
+Design for **full Cacildes combat breadth** with **fewer moving parts**.
 
-Jam scope combat verbs: **move, dodge, light attack, block** — add heavy/spell only if time remains.
+### Stats (`AF.Stats`) — plain C#
+
+```
+StatId (enum) → StatSheet (base + modifiers by sourceId)
+             → DerivedStats (formulas: vitality→HP, endurance→stamina, …)
+             → ResourcePool (current/max, damage, spend, regen hooks)
+             → DamageResolver (int damage in/out — extend for types/resists later)
+```
+
+- **Health, stamina, mana** are all `ResourcePool` instances fed by the same stat sheet.
+- Equipment: `StatSheet.AddModifier(sourceId, …)` then `ResourcePool.RefreshMax()`. **One system.**
+
+### Combat (`AF.Combat`)
+
+```
+CombatAction (abstract SO)     — CanExecute, Begin, Tick, End
+    ├── MeleeHitboxAction
+    ├── ProjectileAction       (later)
+    ├── DodgeAction            (later)
+    └── …
+
+CombatController               — TryStart(action); entity-agnostic; NO input
+CombatExecution                — context: controller, actor, hitboxes, target (later)
+CombatActor                    — StatSheet + resource pool refs for this entity
+
+PlayerCombatInput (AF.Player)  — intent → TryStart
+AI states (AF.AI)              — decision → TryStart
+```
+
+- **Never** a parallel melee-only controller.
+- Hitbox/Hurtbox + `HealthComponent` wrap `ResourcePool` + events.
+
+### Delivery order
+
+Still slice by slice for **implementation**, but each doc must match this shape. See `docs/code/combat-minimum-v2.md` for first slice.
 
 ---
 
@@ -283,13 +359,13 @@ Port from Cacildes with **KISS** rules. Delivery in four slices: types → solve
 | Decision | Value |
 |----------|-------|
 | Namespace / asmdef | `AF.Dungeon` |
-| Critical path `roomSize` (jam) | **5** (start + 3 mid + boss) |
+| Default critical path `roomSize` | **5** (start + 3 mid + boss) — tunable, not a code fork |
 | Side rooms | **Keep** |
 | Connector rooms | **Keep** |
 | Collision | **Floor tile bounds** — `RoomFloorTile` + `MeshFilter` per slab, baked at prefab load |
 | Seed source | `RunCoordinator.Instance.Session.Seed` |
-| Visibility culling | **Out** (jam v1) |
-| Enemy/loot spawn in generator | **Out** — `AI` / `Loot` modules later |
+| Visibility culling | **Deferred** — solver types stay pure; adapter adds culling later |
+| Enemy/loot spawn in generator | **`AI` / `Loot` modules** — not in generator |
 
 ### Architecture
 
@@ -519,15 +595,15 @@ Replace `AF.Dungeon` / namespace with the feature under test (`AF.Stats`, etc.).
 
 When implementing a task:
 
-1. **Read this file** — package ownership, asmdef direction, jam scope
-2. **Deliver `docs/code/<feature>.md`** — full file contents for the user to type
-3. **Include unit tests** — Edit Mode tests for all new plain C# logic (§16), in the same doc
-4. **Prefer plain C# classes** over new MonoBehaviours where possible
-5. **Port from Cacildes** only after stating what you are simplifying
-6. **Do not** design managers with more than **5** serialized dependencies
-7. **Do not** add features outside jam loop (quests, companions, day/night, reputation, crafting)
+1. **Read this file** — package ownership, asmdef direction, **target architecture** (§9)
+2. **Challenge the request** if it copies a Cacildes anti-pattern (§1b, §4) — propose the AF shape first
+3. **Deliver `docs/code/<feature>.md`** — full file contents for the user to type
+4. **Include unit tests** — Edit Mode tests for all new plain C# logic (§16), in the feature’s `Tests/` folder
+5. **Prefer plain C# classes** over new MonoBehaviours where possible
+6. **Port from Cacildes** only after: (a) what we keep, (b) what was wrong, (c) what replaces it
+7. **Do not** design managers with more than **5** serialized dependencies
 8. **UI screens** — UXML/USS + keyboard/gamepad focus; full contents in the delivery doc
-9. **One slice per task** — focused delivery, not a monolith
+9. **One slice per task** — focused delivery, not a monolith; slice **implements** less, **designs** for full game
 
 ### Definition of done (per task)
 
@@ -541,29 +617,21 @@ When implementing a task:
 
 ---
 
-## 19. Jam scope lock (do not expand without explicit user approval)
+## 19. Content milestones (implementation order — not architecture limits)
 
-**In scope:**
+**Architecture** targets the full soulslike + roguelike (Cacildes feature set). **Content** ships in milestones:
 
-- Title menu → start run
-- Procedural floor (1 biome, 1 boss at end)
-- 3rd person move + dodge + light attack + block
-- Lock-on (single target, switch left/right)
-- 2–3 enemy types
-- Run loot (weapon + consumable)
-- Death → meta currency → 2–3 permanent upgrades
-- Run summary screen
+| Milestone | Playable loop | Architecture must already support |
+|-----------|---------------|-----------------------------------|
+| M1 | Menu → run → graybox dungeon → move | Core, Dungeon, Player |
+| M2 | + light attack, enemy HP, player death | Stats, Combat (`CombatAction` hierarchy) |
+| M3 | + block, dodge, lock-on | More `CombatAction` types, same executor |
+| M4 | + AI chase/attack, loot, meta currency | AI driver → `TryStart`, Loot, Meta saves |
+| M5+ | Spells, equipment modifiers, more biomes | Extend `StatSheet`, `CombatAction` — no rewrites |
 
-**Out of scope (v1):**
+**Explicitly deferred content** (not deferred architecture): quests, bonfires, swimming/climbing, full customization UI, localization — add when milestone allows; **do not** hack them in via god managers.
 
-- Character customization
-- Quests, NPCs, dialogue
-- Bonfires / mid-run checkpoints
-- Rebindable controls
-- Full inventory UI (use simple pickup slots)
-- Swimming, climbing, stealth, bows, spells, executions, companions
-- Save anywhere
-- Localization
+Expand milestones only with user approval; **never** expand by bolting Cacildes-style monoliths.
 
 ---
 
@@ -612,4 +680,4 @@ namespace AF.Core
 
 ---
 
-_Last updated: user writes code from `docs/code/` (§2). Unit tests mandatory (§16). Canonical: `.cursor/rules/coding-and-architecture.md`. Mirror: `agent.md`._
+_Last updated: Cacildes rebuild — clean architecture, vertical slices, agent pushback (§1b). User writes code from `docs/code/` (§2). Tests in `Feature/Tests/` (§16). Mirror: `agent.md`._

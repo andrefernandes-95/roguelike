@@ -18,7 +18,7 @@ Review of [combat-minimum.md](combat-minimum.md) against **Cacildes Adventure 2*
 | Hitbox / Hurtbox / `DamageResolver` | Thin glue, testable math | **Yes** — keep |
 | Asmdef boundaries (no Combat ↔ Player) | Clean | **Yes** — keep |
 
-**Summary:** The doc is a good **graybox slice**, but Parts B and C **diverge** from both your unified-combat goal and §9 in `coding-and-architecture.md` (`StatSheet`, `StatModifier`, resource pools). Type Part A as written; **revise B/C** using the target shape below so you do not throw away code when abilities and gear land.
+**Summary:** v1 was a **throwaway jam path**. v2 and §9 in `coding-and-architecture.md` define the **production architecture**: unified `CombatAction` hierarchy, entity-agnostic `CombatController`, single stat modifier path. Implement M2 as the first slice of that — not a fork to rewrite later.
 
 ---
 
@@ -142,8 +142,9 @@ One modifier path. Cacildes needs two.
 
 | Type | Role |
 |------|------|
-| `CombatAction` (SO) | Data: damage, stamina cost, swing duration, hitbox profile, animator trigger |
-| `CombatController` | Reads intent, picks action, gates, runs runner |
+| `CombatAction` (abstract SO) | Per-type `Begin` / `Tick` / `End` — subclasses like Cacildes `Ability` |
+| `CombatController` | Entity-agnostic executor; `TryStart(action)` — no input |
+| `PlayerCombatInput` | Player adapter: intent → `TryStart` |
 | `CombatActor` | MonoBehaviour: `StatSheet`, health/stamina pools, hurtbox ref |
 | `HealthComponent` | Wraps health `ResourcePool`, events, `ApplyDamage` |
 | Hitbox / Hurtbox | Unchanged from combat-minimum |
