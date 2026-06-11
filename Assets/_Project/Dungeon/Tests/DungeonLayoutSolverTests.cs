@@ -3,7 +3,7 @@ using AF.Dungeon;
 using NUnit.Framework;
 using UnityEngine;
 
-namespace AF.Tests
+namespace AF.Tests.Dungeon
 {
     public class DungeonLayoutSolverTests
     {
@@ -112,7 +112,6 @@ namespace AF.Tests
                 out _
             );
 
-
             Assert.AreEqual(a.Count, b.Count);
             for (int i = 0; i < a.Count; i++)
             {
@@ -124,7 +123,6 @@ namespace AF.Tests
         [Test]
         public void TrySolveLayout_OverlappingDoors_Fails()
         {
-            // Doors ate center -> rooms overlap on step 1
             RoomTemplate Bad(string id)
             {
                 var room = new RoomTemplate(id);
@@ -191,6 +189,5 @@ namespace AF.Tests
             Assert.IsTrue(ok, error);
             Assert.Greater(result.Count, 3, "Connector should add at least one extra room");
         }
-
     }
 }

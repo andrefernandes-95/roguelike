@@ -203,16 +203,16 @@ Assets/_Project/Stats/
 ├── DerivedStats.cs
 ├── ResourcePool.cs
 ├── DamageTypes.cs
-└── DamageResolver.cs
-
-Assets/_Project/Tests/EditMode/
-├── StatSheetTests.cs
-├── ResourcePoolTests.cs
-├── DerivedStatsTests.cs
-└── DamageResolverTests.cs
+├── DamageResolver.cs
+└── Tests/
+    ├── AF.Stats.Tests.asmdef
+    ├── StatSheetTests.cs
+    ├── ResourcePoolTests.cs
+    ├── DerivedStatsTests.cs
+    └── DamageResolverTests.cs
 ```
 
-Update `AF.Tests.EditMode.asmdef` — add `"AF.Stats"` and `"AF.Core"` to references.
+Tests are **colocated** with the feature assembly (same pattern as `Dungeon/Tests/`). No monolithic `AF.Tests.EditMode`.
 
 ---
 
@@ -232,6 +232,37 @@ Update `AF.Tests.EditMode.asmdef` — add `"AF.Stats"` and `"AF.Core"` to refere
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
+```
+
+---
+
+### `Assets/_Project/Stats/Tests/AF.Stats.Tests.asmdef`
+
+```json
+{
+    "name": "AF.Stats.Tests",
+    "rootNamespace": "AF.Tests.Stats",
+    "references": [
+        "AF.Stats",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
     "versionDefines": [],
     "noEngineReferences": false
 }
@@ -520,13 +551,13 @@ namespace AF.Stats
 
 ---
 
-### `Assets/_Project/Tests/EditMode/StatSheetTests.cs`
+### `Assets/_Project/Stats/Tests/StatSheetTests.cs`
 
 ```csharp
 using AF.Stats;
 using NUnit.Framework;
 
-namespace AF.Tests
+namespace AF.Tests.Stats
 {
     public class StatSheetTests
     {
@@ -565,13 +596,13 @@ namespace AF.Tests
 
 ---
 
-### `Assets/_Project/Tests/EditMode/DerivedStatsTests.cs`
+### `Assets/_Project/Stats/Tests/DerivedStatsTests.cs`
 
 ```csharp
 using AF.Stats;
 using NUnit.Framework;
 
-namespace AF.Tests
+namespace AF.Tests.Stats
 {
     public class DerivedStatsTests
     {
@@ -597,13 +628,13 @@ namespace AF.Tests
 
 ---
 
-### `Assets/_Project/Tests/EditMode/ResourcePoolTests.cs`
+### `Assets/_Project/Stats/Tests/ResourcePoolTests.cs`
 
 ```csharp
 using AF.Stats;
 using NUnit.Framework;
 
-namespace AF.Tests
+namespace AF.Tests.Stats
 {
     public class ResourcePoolTests
     {
@@ -656,13 +687,13 @@ namespace AF.Tests
 
 ---
 
-### `Assets/_Project/Tests/EditMode/DamageResolverTests.cs`
+### `Assets/_Project/Stats/Tests/DamageResolverTests.cs`
 
 ```csharp
 using AF.Stats;
 using NUnit.Framework;
 
-namespace AF.Tests
+namespace AF.Tests.Stats
 {
     public class DamageResolverTests
     {
@@ -684,9 +715,9 @@ namespace AF.Tests
 
 ## Part B checklist
 
-- [ ] `AF.Stats` asmdef + all scripts
-- [ ] `AF.Tests.EditMode` references `AF.Stats`
-- [ ] Test Runner → Edit Mode → 4 stat test fixtures green
+- [ ] `AF.Stats` asmdef + all runtime scripts
+- [ ] `Stats/Tests/AF.Stats.Tests.asmdef` + 4 test files
+- [ ] Test Runner → Edit Mode → stat tests green
 
 ---
 
@@ -1253,9 +1284,14 @@ Test Runner → run:
 | `AF.Player` | `AF.Core` |
 | `AF.Stats` | `AF.Core` |
 | `AF.Combat` | `AF.Core`, `AF.Stats` |
-| `AF.Tests.EditMode` | `AF.Core`, `AF.Stats`, `AF.Dungeon`, test runners |
+| `AF.Stats.Tests` | `AF.Stats`, test runners (Editor) |
+| `AF.Dungeon.Tests` | `AF.Dungeon`, test runners (Editor) |
 
 **Never** `AF.Combat` → `AF.Player` or `AF.Player` → `AF.Combat`.
+
+### Dungeon tests (done)
+
+Dungeon Edit Mode tests live in `Assets/_Project/Dungeon/Tests/` (`AF.Dungeon.Tests`, namespace `AF.Tests.Dungeon`). Shared builders: `TestRooms.cs`.
 
 ---
 

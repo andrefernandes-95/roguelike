@@ -3,7 +3,7 @@ using AF.Dungeon;
 using NUnit.Framework;
 using UnityEngine;
 
-namespace AF.Tests
+namespace AF.Tests.Dungeon
 {
     public class BoundsHelperTests
     {

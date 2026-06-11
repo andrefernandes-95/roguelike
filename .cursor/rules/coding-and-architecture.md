@@ -118,6 +118,7 @@ Each feature folder has an asmdef at the **feature root** (covers `Runtime/`, `I
 Feature/
 ├── AF.Feature.asmdef     # e.g. AF.Core, AF.Player, AF.Dungeon
 ├── Runtime/
+├── Tests/                # Edit Mode tests — AF.Feature.Tests.asmdef
 ├── Editor/               # (optional) Editor-only code + AF.Feature.Editor.asmdef
 └── Data/                 # (optional) ScriptableObject assets
 ```
@@ -135,7 +136,7 @@ Feature/
 | `AF.Loot` | `AF.Loot` | `AF.Stats`, `AF.Core` |
 | `AF.Meta` | `AF.Meta` | `AF.Core` |
 | `AF.UI` | `AF.UI` | `AF.Core` |
-| `AF.Tests.EditMode` | `AF.Tests` | test targets (Editor only) |
+| `AF.<Feature>.Tests` | `AF.Tests.<Feature>` | that feature asmdef + Test Runner (Editor only) |
 
 Dependency direction:
 
@@ -445,9 +446,11 @@ Forbidden:
 ### Rules
 
 - **Edit Mode tests** (NUnit) for plain C#: solvers, bounds, state machines, damage math, stat sheets
-- Tests live in `Assets/_Project/Tests/EditMode/` with `AF.Tests.EditMode.asmdef`
-- Test **logic**, not instantiated prefabs or Play Mode scenes
-- Reuse shared builders (e.g. `TestRooms.Box`) in `AF.Tests` namespace
+- **One test asmdef per feature** — colocated under that feature’s `Tests/` folder (e.g. `Dungeon/Tests/AF.Dungeon.Tests.asmdef`). Do **not** grow a monolithic `AF.Tests.EditMode` that references every package.
+- Test asmdef references **only** the feature under test (+ Unity Test Runner). Cross-feature integration tests are rare; put them in the higher-level feature’s test assembly or skip for jam.
+- Test **logic**, not instantiated prefabs or Play Mode scenes (prefab bake tests that need `AssetDatabase` are OK in that feature’s `Tests/` with Editor platform)
+- Shared builders for a feature live in that feature’s `Tests/` (e.g. `Dungeon/Tests/TestRooms.cs`)
+- Namespace: `AF.Tests.Dungeon`, `AF.Tests.Stats`, … — not a flat `AF.Tests` grab bag
 - Name tests clearly: `MethodName_Scenario_ExpectedResult`
 - No Play Mode tests for jam unless verifying a critical integration
 
@@ -462,9 +465,34 @@ Forbidden:
 
 ### Agent must include with logic changes
 
-- Edit Mode test files in `Assets/_Project/Tests/EditMode/`
-- `AF.Tests.EditMode.asmdef` updated if new assembly reference needed
+- Edit Mode test files in `Assets/_Project/<Feature>/Tests/`
+- `AF.<Feature>.Tests.asmdef` for that feature (create if missing)
 - Tests run or user told to run **Test Runner → Edit Mode**
+
+### Test asmdef template
+
+```json
+{
+    "name": "AF.Dungeon.Tests",
+    "rootNamespace": "AF.Tests.Dungeon",
+    "references": [
+        "AF.Dungeon",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
+    ],
+    "includePlatforms": ["Editor"],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": ["nunit.framework.dll"],
+    "autoReferenced": false,
+    "defineConstraints": ["UNITY_INCLUDE_TESTS"],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
+```
+
+Replace `AF.Dungeon` / namespace with the feature under test (`AF.Stats`, etc.).
 
 ---
 
