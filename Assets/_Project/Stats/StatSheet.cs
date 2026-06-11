@@ -29,7 +29,7 @@ namespace AF.Stats
                 }
             }
 
-            return Math.Max(1, total);
+            return Math.Max(0, total);
         }
 
         public void SetBase(StatId stat, int level)

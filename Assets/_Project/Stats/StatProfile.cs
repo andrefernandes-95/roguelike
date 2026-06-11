@@ -8,16 +8,10 @@ namespace AF.Stats
         public int Vitality;
         public int Endurance;
 
-        public static StatProfile DefaultPlayer => new()
+        public static StatProfile Default => new()
         {
-            Vitality = 1,
-            Endurance = 1
-        };
-
-        public static StatProfile DefaultEnemy => new()
-        {
-            Vitality = 1,
-            Endurance = 1
+            Vitality = 0,
+            Endurance = 0
         };
     }
 }
