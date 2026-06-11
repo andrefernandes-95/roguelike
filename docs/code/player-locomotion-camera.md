@@ -18,6 +18,8 @@ Base third-person locomotion: **move**, **jump**, **dodge**, and **camera occlus
 
 Dodge will eventually become a `DodgeCombatAction` subclass that calls the same `PlayerDodge.TryStart(...)` API — locomotion owns movement; combat owns costs, i-frames, and busy gating with attacks.
 
+**Note:** Velocity dodge in this doc is a **graybox placeholder**. Root-motion dodge + combat are in [character-animations.md](character-animations.md). Prefer **`CharacterMotor`** + **`PlayerLocomotionInput`** over `PlayerMotor` when typing.
+
 ---
 
 ## Files

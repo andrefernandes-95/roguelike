@@ -35,7 +35,8 @@ Agents **must challenge** proposals (user’s or their own) when they repeat Cac
 **Push back when you see:**
 
 - A new `*Manager` with 8+ serialized dependencies or “and also” responsibilities
-- Player-only logic on a type that AI will need (`CombatController` reading input)
+- Player-only logic on a type that AI will need (`CombatController` reading input, `PlayerMotor` / `PlayerDodge` / `PlayerView` on a shared body system)
+- Gameplay body systems named `Player*` when enemies use the same stack (`CharacterMotor` + adapters, not `PlayerMotor`)
 - A second pipeline for the same verb (melee controller **and** ability manager)
 - Stats/attributes/equipment modeled as **two modifier systems**
 - “Jam shortcut” / “we’ll refactor later” for **core** systems (combat, stats, saves, input)
@@ -47,6 +48,7 @@ Agents **must challenge** proposals (user’s or their own) when they repeat Cac
 - **One executor, many data types** (abstract `CombatAction` subclasses; one `CombatController`)
 - **One modifier path** (`StatSheet` → derived max → `ResourcePool`)
 - **Intent in, commands out** — player adapter vs AI adapter, shared executor
+- **Player is a character** — locomotion, animation, root motion in `AF.Character`; `AF.Player` = input, camera, control gate only
 - Explicit tradeoffs in writing before delivering `docs/code/*.md`
 
 **Tone:** Direct and constructive. “Cacildes did X; here’s a simpler model that scales to Y.”
@@ -126,8 +128,10 @@ Write for your **dumber future self** at 2 AM before a build.
 
 | Cacildes problem | Better AF shape |
 |------------------|-----------------|
-| `CharacterBaseManager` / `PlayerManager` — 20+ refs, `ResetStates()` cascade | **Entity composition** — small components; `PlayerControlGate` enables/disables groups |
+| `CharacterBaseManager` / `PlayerManager` — 20+ refs, `ResetStates()` cascade | **Entity composition** — `AF.Character` body + thin adapters; `PlayerControlGate` enables/disables **adapters** |
 | `PlayerCombatController` + `CharacterAbilityManager` — two pipelines | **`CombatController.TryStart(CombatAction)`** — one executor; `PlayerCombatInput` vs AI driver |
+| `PlayerDodgeController` + dodge only on player | **`DodgeCombatAction`** + `IActionAnimator` — player **and** AI |
+| `ThirdPersonController` + `PlayerManager` motor/anim | **`CharacterMotor`** + **`CharacterAnimationDriver`**; player reads input via **`PlayerLocomotionInput`** |
 | `StatsController` + `AttributeController` + per-resource managers | **`StatSheet` → `DerivedStats` → `ResourcePool`** — one modifier path |
 | `StaminaStatManager` / `ManaManager` separate from attributes | Same **`ResourcePool`** type; regen policy per resource, max from stats |
 | `SaveManager` knows everything | **Per-domain save ports** + orchestrator; no 700-line god file |
@@ -146,7 +150,8 @@ All game code lives under `Assets/_Project/`.
 ```
 Assets/_Project/
 ├── Core/                 # Session, run lifecycle, scene flow, bootstrap, shared interfaces
-├── Player/               # Player entity, motor, camera, lock-on, input routing (not combat math)
+├── Character/            # Entity body: motor, locomotion view, animation driver, root motion (player + AI)
+├── Player/               # Player-only adapters: input, camera, lock-on, control gate (NOT motor/anim)
 ├── Combat/               # Hitboxes, damage pipeline, poise, abilities execution
 ├── Stats/                # Stat definitions, modifiers, resource pools (HP, stamina)
 ├── AI/                   # Enemy behaviour, perception, state machines
@@ -173,10 +178,11 @@ Feature/
 | Asmdef | Namespace | References |
 |--------|-----------|------------|
 | `AF.Core` | `AF.Core` | Unity only |
+| `AF.Character` | `AF.Character` | `AF.Core` |
 | `AF.Stats` | `AF.Stats` | `AF.Core` |
 | `AF.Combat` | `AF.Combat` | `AF.Stats`, `AF.Core` |
-| `AF.AI` | `AF.AI` | `AF.Combat`, `AF.Stats`, `AF.Core` |
-| `AF.Player` | `AF.Player` | `AF.Core`, `Unity.InputSystem` |
+| `AF.AI` | `AF.AI` | `AF.Combat`, `AF.Stats`, `AF.Character`, `AF.Core` |
+| `AF.Player` | `AF.Player` | `AF.Core`, `AF.Character`, `AF.Combat`, `Unity.InputSystem` |
 | `AF.Dungeon` | `AF.Dungeon` | `AF.Core` |
 | `AF.Loot` | `AF.Loot` | `AF.Stats`, `AF.Core` |
 | `AF.Meta` | `AF.Meta` | `AF.Core` |
@@ -187,10 +193,11 @@ Dependency direction:
 
 ```
 Core          →  (Unity, Input System only)
+Character     →  Core
 Stats         →  Core
 Combat        →  Stats, Core
-AI            →  Combat, Stats, Core
-Player        →  Core, Input System
+AI            →  Combat, Stats, Character, Core
+Player        →  Core, Character, Combat, Input System
 Dungeon       →  Core
 Loot          →  Stats, Core
 Meta          →  Core
@@ -198,7 +205,9 @@ UI            →  Core
 Editor        →  everything (editor only)
 ```
 
-**Never:** `Core` → `Combat` / `AI` / `UI`.
+**Never:** `Core` → `Combat` / `AI` / `UI` / `Character`.
+**Never:** `Combat` → `Player` or `Character` (use `IActionAnimator`, `ILocomotionReadout` in Core; `CombatAnimationEvents` in Combat uses `GetComponentInParent<IActionAnimator>()`).
+**Never:** `Character` → `Combat` or `Player`.
 **Never:** circular asmdefs.
 
 If `Core` needs to react to combat, define an **interface or struct event** in `Core`, implemented or raised from `Combat`.
@@ -274,37 +283,92 @@ Implement as plain C# `RunStateMachine`. One MonoBehaviour adapter (`RunCoordina
 
 ---
 
-## 8. Player package
+## 8. Character & Player — **player is a character**
 
-Player is an **entity composition**, not a manager megaclass.
+The **player prefab is a humanoid character** with extra adapters. Anything the player body does (move, jump, dodge roll, attack anim, root motion) must work on **enemy humanoids** without forking code.
+
+### The naming rule
+
+| Prefix | Package | Meaning |
+|--------|---------|---------|
+| **`Character*`** | `AF.Character` | Any controllable or AI humanoid body — motor, animator driver, locomotion view, root motion, animation set |
+| **`Player*`** | `AF.Player` | **Only** what a player has and an enemy does not — input, camera, cursor, run control gate |
+| **`Combat*`** (entity) | `AF.Combat` | Combat math and verbs — entity-agnostic; no input |
+| **`*Input` adapter** | `AF.Player` or `AF.AI` | Maps source (intent / AI) → shared executors |
+
+**Reject:** `PlayerMotor`, `PlayerDodge`, `PlayerView`, `PlayerAnimationDriver` — use `CharacterMotor`, `DodgeCombatAction`, `CharacterLocomotionView`, `CharacterAnimationDriver`.
+
+**Dodge is a combat verb**, not a player component: `DodgeCombatAction` → `IActionAnimator.TryPlayState` (same path AI will use).
+
+### Character package (`AF.Character`)
+
+Shared humanoid body stack:
 
 ```
-PlayerEntity (root GameObject)
-├── PlayerInputAdapter        # Input System → intent struct
-├── PlayerMotor               # CharacterController movement
-├── PlayerCameraRig           # 3rd person follow
-├── PlayerLockOn              # target selection, camera mode switch
-├── PlayerControlGate         # enable/disable control groups (menu, cutscene, death)
-└── PlayerView                # Animator parameter driver
+CharacterRoot (GameObject — player or enemy)
+├── CharacterController
+├── CharacterMotor              # world-space move; NO input, camera, or PlayerIntent
+├── CharacterAnimationDriver    # IActionAnimator — busy, root-motion playback
+├── CharacterLocomotionView     # blend tree params from motor
+├── CharacterAnimationSet       # swaps pre-authored AnimatorOverrideController assets
+├── CombatController / CombatActor / Health / …
+└── Model (child)
+    ├── Animator
+    ├── CharacterRootMotionApplier   # OnAnimatorMove → parent CC
+    └── (CombatAnimationEvents on child — AF.Combat)
 ```
 
-**`PlayerIntent` struct** (plain data):
+- Animation assets: `Assets/Data/Character/Animation/` — not under `Player/`.
+- Humanoid animator hashes: `HumanoidAnimationHashes` in `AF.Character`.
+- **No** runtime `new AnimatorOverrideController(...)` — Editor-authored override assets only.
+
+### Core contracts (character ↔ combat)
+
+Defined in **`AF.Core`** so `AF.Combat` never references `AF.Player` or `AF.Character`:
+
+| Interface | Role |
+|-----------|------|
+| `IActionAnimator` | Play action state, busy, root-motion mode |
+| `ILocomotionReadout` | `MoveInput`, `IsGrounded` — dodge backstep vs roll without reading player input |
+| `IPlayerIntentSource` | Player frame intent (`PlayerIntent`) — **player adapter only** |
+
+`CombatExecution` carries `IActionAnimator` + `ILocomotionReadout` wired on the character root in Inspector / `Awake`.
+
+### Player package (`AF.Player`) — adapters only
+
+```
+Player (prefab = CharacterRoot + player adapters)
+├── … all Character* + Combat* on root …
+├── PlayerInputAdapter          # Input System → PlayerIntent
+├── PlayerLocomotionInput       # intent + camera yaw → CharacterMotor; implements ILocomotionReadout
+├── PlayerCombatInput           # intent → CombatController.TryStart (attack, dodge, block…)
+├── PlayerCameraRig             # 3rd person + collision
+├── PlayerLockOn                # (later) camera mode — stays here
+└── PlayerControlGate           # enables/disables adapters (menu, cutscene, death) — not motor internals
+```
+
+**`PlayerIntent` struct** (plain data in `AF.Core`):
 
 ```csharp
 public struct PlayerIntent
 {
     public Vector2 Move;
     public Vector2 Look;
+    public bool Jump;
     public bool Dodge;
     public bool LightAttack;
+    public bool Block;
     public bool LockOn;
     public bool LockOnSwitch;
 }
 ```
 
-`PlayerIntent` lives in **`AF.Core`**. `IPlayerIntentSource` implemented by `PlayerInputAdapter` in `AF.Player`.
+`IPlayerIntentSource` → `PlayerInputAdapter` in `AF.Player`.
 
-**Do not** recreate `PlayerManager` / `PlayerCombatController`. Player = motor + camera + input + **thin adapters** that call into `Combat` / `Stats`.
+**Do not** recreate `PlayerManager` / `PlayerCombatController` / `PlayerDodgeController`.  
+**Do not** put motor, dodge, or animator playback in `AF.Player`.
+
+**Delivery reference:** `docs/code/character-animations.md`, `docs/code/player-locomotion-camera.md` (migrate to `CharacterMotor` + `PlayerLocomotionInput`).
 
 ---
 
@@ -328,17 +392,18 @@ StatId (enum) → StatSheet (base + modifiers by sourceId)
 
 ```
 CombatAction (abstract SO)     — CanExecute, Begin, Tick, End
-    ├── MeleeHitboxAction
+    ├── MeleeHitboxAction      — root-motion attack via ctx.Animator
+    ├── DodgeCombatAction      — root-motion roll/backstep via ctx.Animator + ctx.Locomotion
     ├── ProjectileAction       (later)
-    ├── DodgeAction            (later)
     └── …
 
 CombatController               — TryStart(action); entity-agnostic; NO input
-CombatExecution                — context: controller, actor, hitboxes, target (later)
+CombatExecution                — controller, actor, hitbox, IActionAnimator, ILocomotionReadout
 CombatActor                    — StatSheet + resource pool refs for this entity
+CombatAnimationEvents          — clip events → hitbox / action complete (AF.Combat, on model child)
 
 PlayerCombatInput (AF.Player)  — intent → TryStart
-AI states (AF.AI)              — decision → TryStart
+AI states (AF.AI)              — decision → TryStart (same CombatAction assets)
 ```
 
 - **Never** a parallel melee-only controller.
@@ -623,10 +688,10 @@ When implementing a task:
 
 | Milestone | Playable loop | Architecture must already support |
 |-----------|---------------|-----------------------------------|
-| M1 | Menu → run → graybox dungeon → move | Core, Dungeon, Player |
+| M1 | Menu → run → graybox dungeon → move + anim | Core, Character, Dungeon, Player adapters |
 | M2 | + light attack, enemy HP, player death | Stats, Combat (`CombatAction` hierarchy) |
-| M3 | + block, dodge, lock-on | More `CombatAction` types, same executor |
-| M4 | + AI chase/attack, loot, meta currency | AI driver → `TryStart`, Loot, Meta saves |
+| M3 | + block, dodge, lock-on | `DodgeCombatAction` + more types, same executor |
+| M4 | + AI chase/attack, loot, meta currency | AI steering → `CharacterMotor`; AI → `TryStart`, Loot, Meta |
 | M5+ | Spells, equipment modifiers, more biomes | Extend `StatSheet`, `CombatAction` — no rewrites |
 
 **Explicitly deferred content** (not deferred architecture): quests, bonfires, swimming/climbing, full customization UI, localization — add when milestone allows; **do not** hack them in via god managers.
@@ -677,7 +742,21 @@ namespace AF.Core
 | **Adapter**      | MonoBehaviour that connects Unity to plain C#                   |
 | **Intent**       | Frame input snapshot consumed by gameplay systems               |
 | **Control gate** | Enables/disables player adapters (menu, stun, death)            |
+| **Character**    | Entity body package (`AF.Character`) — motor, anim, root motion; shared by player and AI |
+| **Player adapter** | `AF.Player` component that maps player-only input/camera onto a character |
+
+### Agent checklist — character vs player
+
+Before delivering `docs/code/*.md` for locomotion, animation, or combat presentation:
+
+- [ ] Body logic in `AF.Character` (or `AF.Combat` for verbs), **not** `AF.Player`
+- [ ] No `PlayerMotor` / `PlayerDodge` / `PlayerView` — use `Character*` + `*CombatAction` + adapters
+- [ ] `CharacterMotor` has no `PlayerIntent`, camera, or Input System references
+- [ ] Dodge/attack playback via `CombatController.TryStart`, not a player-only MonoBehaviour
+- [ ] `AF.Combat` does not reference `AF.Player`; shared contracts in `AF.Core`
+- [ ] Animation data under `Assets/Data/Character/`, not `Assets/Data/Player/`
+- [ ] No runtime `AnimatorOverrideController` construction
 
 ---
 
-_Last updated: Cacildes rebuild — clean architecture, vertical slices, agent pushback (§1b). User writes code from `docs/code/` (§2). Tests in `Feature/Tests/` (§16). Mirror: `agent.md`._
+_Last updated: character-agnostic body (§8), `AF.Character` asmdef, agent pushback (§1b). User writes code from `docs/code/` (§2). Tests in `Feature/Tests/` (§16). Mirror: `agent.md`._

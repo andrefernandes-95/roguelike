@@ -1,3 +1,4 @@
+using AF.Character;
 using AF.Core;
 using UnityEngine;
 
@@ -6,8 +7,8 @@ namespace AF.Player
     public sealed class PlayerControlGate : MonoBehaviour
     {
         [SerializeField] PlayerInputAdapter input;
-        [SerializeField] PlayerMotor motor;
-        [SerializeField] PlayerDodge dodge;
+        [SerializeField] PlayerLocomotionInput playerLocomotionInput;
+        [SerializeField] CharacterMotor motor;
 
         PlayerCameraRig cameraRig;
         RunState lastState = RunState.Boot;
@@ -40,8 +41,8 @@ namespace AF.Player
 
             bool gameplay = state == RunState.FloorActive;
             input.SetInputEnabled(gameplay);
+            playerLocomotionInput.SetLocomotionInputEnabled(gameplay);
             motor.SetMotorEnabled(gameplay);
-            dodge.SetDodgeEnabled(gameplay);
             cameraRig.SetCameraEnabled(gameplay);
 
             if (!gameplay)

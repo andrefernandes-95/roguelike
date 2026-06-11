@@ -1,10 +1,8 @@
 {
-  "name": "AF.Player",
-  "rootNamespace": "AF.Player",
+  "name": "AF.Character",
+  "rootNamespace": "AF.Character",
   "references": [
-    "AF.Core",
-    "AF.Character",
-    "Unity.InputSystem"
+    "AF.Core"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],

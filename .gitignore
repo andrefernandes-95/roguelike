@@ -9,11 +9,140 @@
 /[Mm]emory[Cc]aptures/
 /[Rr]ecordings/
 
-/StylizedHandPaintedDungeon(Free)/*
+# Asset meta for project-owned assets should be committed.
+# Commercial / third-party packs: ignore entire trees (local license only).
 
-# Asset meta should be committed — only ignore tooling noise below
+# -----------------------------------------------------------------------------
+# Third-party & Asset Store packs (folder blocklist — add new pack roots here)
+# -----------------------------------------------------------------------------
+/StylizedHandPaintedDungeon(Free)/
+/[Aa]ssets/StylizedHandPaintedDungeon*/
+/[Aa]ssets/DoubleL/
+/[Aa]ssets/StylizedCharacter/
+/[Aa]ssets/Hand Painted Stone Texture/
+/[Aa]ssets/[Tt]hird[Pp]arty/
+/[Aa]ssets/[Aa]sset[Ss]tore/
+# Optional: ignore a specific licensed plugin folder, e.g. /[Aa]ssets/Plugins/SomeStorePack/
 
-# Visual Studio / Rider
+# -----------------------------------------------------------------------------
+# Commercial media — global denylist (meshes, textures, audio, video)
+# Whitelist keeps project-authored paths only; everything else stays out of git.
+# -----------------------------------------------------------------------------
+# Meshes & models
+*.fbx
+*.FBX
+*.obj
+*.OBJ
+*.blend
+*.BLEND
+*.dae
+*.DAE
+*.3ds
+*.3DS
+*.max
+*.MAX
+*.ma
+*.MA
+*.mb
+*.MB
+
+# Textures & images
+*.png
+*.PNG
+*.jpg
+*.JPG
+*.jpeg
+*.JPEG
+*.tga
+*.TGA
+*.psd
+*.PSD
+*.exr
+*.EXR
+*.hdr
+*.HDR
+*.tif
+*.TIF
+*.tiff
+*.TIFF
+*.bmp
+*.BMP
+*.gif
+*.GIF
+*.webp
+*.WEBP
+
+# Audio
+*.wav
+*.WAV
+*.mp3
+*.MP3
+*.ogg
+*.OGG
+*.aiff
+*.AIFF
+*.aif
+*.AIF
+*.flac
+*.FLAC
+
+# Video
+*.mp4
+*.MP4
+*.mov
+*.MOV
+*.avi
+*.AVI
+*.webm
+*.WEBM
+
+# Pack docs / installers (usually licensed separately)
+*.pdf
+*.PDF
+*.unitypackage
+*.zip
+*.7z
+*.rar
+
+# Re-allow project-owned asset paths (YAML prefabs, scenes, SOs, code, UI styles)
+!/[Aa]ssets/_Project/
+!/[Aa]ssets/_Project/**
+!/[Aa]ssets/[Dd]ata/
+!/[Aa]ssets/[Dd]ata/**
+!/[Aa]ssets/[Ss]cenes/
+!/[Aa]ssets/[Ss]cenes/**
+!/[Aa]ssets/[Mm]aterials/
+!/[Aa]ssets/[Mm]aterials/**
+!/[Aa]ssets/[Ss]ettings/
+!/[Aa]ssets/[Ss]ettings/**
+!/[Aa]ssets/UI Toolkit/
+!/[Aa]ssets/UI Toolkit/**
+!/[Aa]ssets/*.asset
+!/[Aa]ssets/*.inputactions
+!/[Aa]ssets/*.controller
+!/[Aa]ssets/*.overrideController
+!/[Aa]ssets/*.mask
+!/[Aa]ssets/*.physicMaterial
+!/[Aa]ssets/*.terrainlayer
+!/[Aa]ssets/*.lighting
+!/[Aa]ssets/*.signal
+!/[Aa]ssets/*.playable
+!/[Aa]ssets/*.shader
+!/[Aa]ssets/*.shadergraph
+!/[Aa]ssets/*.cginc
+!/[Aa]ssets/*.hlsl
+!/[Aa]ssets/*.cs
+!/[Aa]ssets/*.uxml
+!/[Aa]ssets/*.uss
+!/[Aa]ssets/*.tss
+!/[Aa]ssets/*.json
+!/[Aa]ssets/*.xml
+!/[Aa]ssets/*.txt
+!/[Aa]ssets/*.md
+
+# -----------------------------------------------------------------------------
+# Tooling & IDE
+# -----------------------------------------------------------------------------
 .vs/
 .idea/
 *.DotSettings.user
@@ -44,10 +173,9 @@
 sysinfo.txt
 crashlytics-build.properties
 
-# Builds & packages
+# Builds & packages (redundant with *.unitypackage above — kept for clarity)
 *.apk
 *.aab
-*.unitypackage
 *.app
 
 # Addressables

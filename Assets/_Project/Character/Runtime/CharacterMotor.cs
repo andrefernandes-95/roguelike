@@ -1,35 +1,26 @@
 using AF.Core;
 using UnityEngine;
 
-namespace AF.Player
+namespace AF.Character
 {
     [RequireComponent(typeof(CharacterController))]
-    [RequireComponent(typeof(PlayerInputAdapter))]
-    public sealed class PlayerMotor : MonoBehaviour
+    public sealed class CharacterMotor : MonoBehaviour, ILocomotionReadout
     {
-        [SerializeField] PlayerLocomotionSettings settings;
+        [SerializeField] CharacterLocomotionSettings settings;
+        [SerializeField] CharacterAnimationDriver animationDriver;
+        [SerializeField] CharacterController controller;
 
-        PlayerCameraRig cameraRig;
-        CharacterController controller;
-        PlayerInputAdapter input;
-
+        Vector3 worldMoveDirection;
+        float moveMagnitude;
         float verticalVelocity;
         float jumpTimeoutDelta;
-        bool isEnabled = false;
+        bool jumpRequested;
+        bool isEnabled = true;
 
+        public Vector2 MoveInput => new Vector2(worldMoveDirection.x, worldMoveDirection.z);
         public bool IsGrounded => controller != null && controller.isGrounded;
-        public bool IsLocomotionBusy
-        {
-            get;
-            private set;
-        }
-
-        void Awake()
-        {
-            controller = GetComponent<CharacterController>();
-            input = GetComponent<PlayerInputAdapter>();
-            cameraRig = FindAnyObjectByType<PlayerCameraRig>(FindObjectsInactive.Include);
-        }
+        public float HorizontalSpeed => moveMagnitude * (settings != null ? settings.moveSpeed : 0f);
+        public float VerticalVelocity => verticalVelocity;
 
         void Update()
         {
@@ -38,10 +29,9 @@ namespace AF.Player
                 return;
             }
 
-            if (IsLocomotionBusy)
+            if (animationDriver != null && animationDriver.IsBusy)
             {
-                ApplyGravity();
-                controller.Move(new Vector3(0f, verticalVelocity, 0f) * Time.deltaTime);
+                ApplyGravityOnly();
                 return;
             }
 
@@ -49,32 +39,41 @@ namespace AF.Player
             HandleJump();
             ApplyGravity();
 
-            Vector3 horizontal = LocomotionMath.CameraRelativeMove(
-                input.Intent.Move,
-                cameraRig.YawDegrees);
-
+            Vector3 horizontal = worldMoveDirection * moveMagnitude * settings.moveSpeed;
             if (horizontal.sqrMagnitude > 0.01f)
             {
                 Quaternion targetRotation = Quaternion.LookRotation(horizontal);
                 transform.rotation = Quaternion.Slerp(
                     transform.rotation,
                     targetRotation,
-                    settings.rotationSpeed * Time.deltaTime
-                );
+                    settings.rotationSpeed * Time.deltaTime);
             }
 
-            Vector3 velocity = horizontal * settings.moveSpeed;
+            Vector3 velocity = horizontal;
             velocity.y = verticalVelocity;
             controller.Move(velocity * Time.deltaTime);
         }
 
+        /// <summary>Called by PlayerLocomotionInput or AI steering.</summary>
+        public void SetWorldMove(Vector3 direction, float magnitude)
+        {
+            worldMoveDirection = direction.sqrMagnitude > 0.01f ? direction.normalized : Vector3.zero;
+            moveMagnitude = Mathf.Clamp01(magnitude);
+        }
+
+        public void RequestJump()
+        {
+            jumpRequested = true;
+        }
+
         void HandleJump()
         {
-            if (!input.Intent.Jump)
+            if (!jumpRequested)
             {
                 return;
             }
 
+            jumpRequested = false;
             if (!IsGrounded || jumpTimeoutDelta > 0f)
             {
                 return;
@@ -82,6 +81,7 @@ namespace AF.Player
 
             verticalVelocity = LocomotionMath.ComputeJumpVelocity(settings.jumpHeight, settings.gravity);
             jumpTimeoutDelta = settings.jumpTimeout;
+            GetComponent<CharacterLocomotionView>()?.NotifyJumpTriggered();
         }
 
         void UpdateJumpTimeout()
@@ -102,25 +102,12 @@ namespace AF.Player
             verticalVelocity += settings.gravity * Time.deltaTime;
         }
 
-        public void ApplyDodgeDisplacement(Vector3 worldVelocity)
+        void ApplyGravityOnly()
         {
-            if (!isEnabled)
-            {
-                return;
-            }
-
-            worldVelocity.y = verticalVelocity;
-            controller.Move(worldVelocity * Time.deltaTime);
+            ApplyGravity();
+            controller.Move(new Vector3(0f, verticalVelocity, 0f) * Time.deltaTime);
         }
 
-        public void SetLocomotionBusy(bool busy)
-        {
-            IsLocomotionBusy = busy;
-        }
-
-        public void SetMotorEnabled(bool enabled)
-        {
-            isEnabled = enabled;
-        }
+        public void SetMotorEnabled(bool enabled) => isEnabled = enabled;
     }
 }
