@@ -1,3 +1,4 @@
+using AF.Core;
 using UnityEngine;
 
 namespace AF.Player
@@ -6,59 +7,115 @@ namespace AF.Player
     [RequireComponent(typeof(PlayerInputAdapter))]
     public sealed class PlayerMotor : MonoBehaviour
     {
-        [SerializeField] float moveSpeed = 5f;
-        [SerializeField] float gravity = -20f;
+        [SerializeField] PlayerLocomotionSettings settings;
 
+        PlayerCameraRig cameraRig;
         CharacterController controller;
         PlayerInputAdapter input;
+
         float verticalVelocity;
+        float jumpTimeoutDelta;
         bool isEnabled = false;
+
+        public bool IsGrounded => controller != null && controller.isGrounded;
+        public bool IsLocomotionBusy
+        {
+            get;
+            private set;
+        }
 
         void Awake()
         {
             controller = GetComponent<CharacterController>();
             input = GetComponent<PlayerInputAdapter>();
+            cameraRig = FindAnyObjectByType<PlayerCameraRig>(FindObjectsInactive.Include);
         }
 
         void Update()
+        {
+            if (!isEnabled || settings == null)
+            {
+                return;
+            }
+
+            if (IsLocomotionBusy)
+            {
+                ApplyGravity();
+                controller.Move(new Vector3(0f, verticalVelocity, 0f) * Time.deltaTime);
+                return;
+            }
+
+            UpdateJumpTimeout();
+            HandleJump();
+            ApplyGravity();
+
+            Vector3 horizontal = LocomotionMath.CameraRelativeMove(
+                input.Intent.Move,
+                cameraRig.YawDegrees);
+
+            if (horizontal.sqrMagnitude > 0.01f)
+            {
+                Quaternion targetRotation = Quaternion.LookRotation(horizontal);
+                transform.rotation = Quaternion.Slerp(
+                    transform.rotation,
+                    targetRotation,
+                    settings.rotationSpeed * Time.deltaTime
+                );
+            }
+
+            Vector3 velocity = horizontal * settings.moveSpeed;
+            velocity.y = verticalVelocity;
+            controller.Move(velocity * Time.deltaTime);
+        }
+
+        void HandleJump()
+        {
+            if (!input.Intent.Jump)
+            {
+                return;
+            }
+
+            if (!IsGrounded || jumpTimeoutDelta > 0f)
+            {
+                return;
+            }
+
+            verticalVelocity = LocomotionMath.ComputeJumpVelocity(settings.jumpHeight, settings.gravity);
+            jumpTimeoutDelta = settings.jumpTimeout;
+        }
+
+        void UpdateJumpTimeout()
+        {
+            if (jumpTimeoutDelta > 0f)
+            {
+                jumpTimeoutDelta -= Time.deltaTime;
+            }
+        }
+
+        void ApplyGravity()
+        {
+            if (IsGrounded && verticalVelocity < 0f)
+            {
+                verticalVelocity = settings.groundedStickVelocity;
+            }
+
+            verticalVelocity += settings.gravity * Time.deltaTime;
+        }
+
+        public void ApplyDodgeDisplacement(Vector3 worldVelocity)
         {
             if (!isEnabled)
             {
                 return;
             }
 
-            if (controller.isGrounded && verticalVelocity < 0f)
-            {
-                verticalVelocity = -2f;
-            }
+            worldVelocity.y = verticalVelocity;
+            controller.Move(worldVelocity * Time.deltaTime);
+        }
 
-            Vector2 moveInput = input.Intent.Move;
-            Vector3 direction = new Vector3(moveInput.x, 0, moveInput.y);
-
-            // Normalize diagonal input so movement speed stays consistent (e.g., (1,0,1) would otherwise be √2 times faster than (1,0,0)).
-            if (direction.sqrMagnitude > 1f)
-            {
-                direction.Normalize();
-            }
-
-            if (direction.sqrMagnitude > 0.01f && Camera.main != null)
-            {
-                Transform cam = Camera.main.transform;
-                Vector3 forward = cam.forward;
-                forward.y = 0f;
-                forward.Normalize();
-
-                Vector3 right = cam.right;
-                right.y = 0f;
-                right.Normalize();
-
-                direction = forward * direction.z + right * direction.x;
-            }
-
-            Vector3 velocity = direction * moveSpeed;
-            verticalVelocity += gravity * Time.deltaTime;
-            velocity.y = verticalVelocity;
-            controller.Move(velocity * Time.deltaTime);
+        public void SetLocomotionBusy(bool busy)
+        {
+            IsLocomotionBusy = busy;
         }
 
         public void SetMotorEnabled(bool enabled)

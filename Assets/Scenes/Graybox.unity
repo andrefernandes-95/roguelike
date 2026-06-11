@@ -320,9 +320,17 @@ MonoBehaviour:
   input: {fileID: 0}
   distance: 4
   height: 2
+  focusHeight: 1.5
   lookSensitivity: 0.15
   minPitch: -30
   maxPitch: 60
+  collisionLayers:
+    serializedVersion: 2
+    m_Bits: 1
+  sphereRadius: 0.25
+  minDistance: 0.1
+  pushInSpeed: 12
+  pullOutSpeed: 4
 --- !u!1 &410087039
 GameObject:
   m_ObjectHideFlags: 0

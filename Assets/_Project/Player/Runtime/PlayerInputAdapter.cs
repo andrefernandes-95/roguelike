@@ -33,7 +33,8 @@ namespace AF.Player
                 Look = actions.Gameplay.Look.ReadValue<Vector2>(),
                 Dodge = actions.Gameplay.Dodge.WasPressedThisFrame(),
                 LightAttack = actions.Gameplay.LightAttack.WasPressedThisFrame(),
-                Block = actions.Gameplay.Block.IsPressed()
+                Block = actions.Gameplay.Block.IsPressed(),
+                Jump = actions.Gameplay.Jump.WasPressedThisFrame()
             };
         }
 

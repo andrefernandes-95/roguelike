@@ -7,9 +7,9 @@ namespace AF.Player
     {
         [SerializeField] PlayerInputAdapter input;
         [SerializeField] PlayerMotor motor;
+        [SerializeField] PlayerDodge dodge;
 
         PlayerCameraRig cameraRig;
-        RunCoordinator runCoordinator;
         RunState lastState = RunState.Boot;
 
         void Awake()
@@ -23,20 +23,14 @@ namespace AF.Player
 
         void Start()
         {
-            ApplyState(GetCoordinator()?.State ?? RunState.Boot);
+            ApplyState(RunCoordinator.Instance.State);
         }
 
         void Update()
         {
-            if (runCoordinator == null)
+            if (RunCoordinator.Instance.State != lastState)
             {
-                return;
-            }
-
-            RunState state = runCoordinator.State;
-            if (state != lastState)
-            {
-                ApplyState(state);
+                ApplyState(RunCoordinator.Instance.State);
             }
         }
 
@@ -47,6 +41,7 @@ namespace AF.Player
             bool gameplay = state == RunState.FloorActive;
             input.SetInputEnabled(gameplay);
             motor.SetMotorEnabled(gameplay);
+            dodge.SetDodgeEnabled(gameplay);
             cameraRig.SetCameraEnabled(gameplay);
 
             if (!gameplay)
@@ -54,11 +49,6 @@ namespace AF.Player
                 Cursor.lockState = CursorLockMode.None;
                 Cursor.visible = true;
             }
-        }
-
-        static RunCoordinator GetCoordinator()
-        {
-            return RunCoordinator.Instance;
         }
     }
 }

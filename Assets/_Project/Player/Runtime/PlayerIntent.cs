@@ -9,5 +9,6 @@ namespace AF.Player
         public bool Dodge;
         public bool LightAttack;
         public bool Block;
+        public bool Jump;
     }
 }

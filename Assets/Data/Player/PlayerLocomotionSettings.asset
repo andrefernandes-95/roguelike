@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f7d85117b63183d4a8801b6d7dac69f8, type: 3}
+  m_Name: PlayerLocomotionSettings
+  m_EditorClassIdentifier: AF.Player::AF.Player.PlayerLocomotionSettings
+  moveSpeed: 5
+  rotationSpeed: 12
+  jumpHeight: 1.2
+  gravity: -20
+  jumpTimeout: 0.25
+  groundedStickVelocity: -2
+  dodgeSpeed: 8
+  dodgeDuration: 0.4
+  dodgeCooldown: 0.5
+  backstepSpeed: 6
+  backstepDuration: 0.35

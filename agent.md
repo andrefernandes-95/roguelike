@@ -50,14 +50,17 @@ Full detail: §9 Combat & Stats, §4 Cacildes lessons — in canonical rules fil
 
 ## Current milestone
 
-**M2 in progress:** [docs/code/combat-minimum-v2.md](docs/code/combat-minimum-v2.md) — Stats + unified combat (after Core/Player/Dungeon M1).
+**M1 locomotion:** [docs/code/player-locomotion-camera.md](docs/code/player-locomotion-camera.md) — move, jump, dodge, camera sphere-cast collision.
 
-| Part | Package | What |
-|------|---------|------|
-| A | Core + Player | `PlayerIntent` in Core; attack/block input |
-| B | `AF.Stats` | `StatSheet`, `ResourcePool`, vitality → HP + tests |
-| C | `AF.Combat` | `CombatAction` hierarchy, `CombatController`, adapters |
-| D | Unity | Wire player + enemy graybox |
+**M2 combat (parallel):** [docs/code/combat-minimum-v2.md](docs/code/combat-minimum-v2.md) — Stats + unified combat.
+
+| Slice | Package | What |
+|-------|---------|------|
+| Locomotion A–G | Core + Player | Intent in Core + Jump; motor, dodge, camera collision, tests |
+| Combat A | Core + Player | `PlayerIntent` in Core; attack/block input (overlap with locomotion A) |
+| Combat B | `AF.Stats` | `StatSheet`, `ResourcePool`, vitality → HP + tests |
+| Combat C | `AF.Combat` | `CombatAction` hierarchy, `CombatController`, adapters |
+| Combat D | Unity | Wire player + enemy graybox |
 
 ---
 
