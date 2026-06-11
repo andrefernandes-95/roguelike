@@ -2,38 +2,38 @@ using UnityEngine;
 
 namespace AF.Combat
 {
-    [CreateAssetMenu(fileName = "MeleeHitboxAction", menuName = "AF/Combat/Melee Hitbox Action")]
-    public sealed class MeleeHitboxAction : CombatAction
+  [CreateAssetMenu(fileName = "MeleeHitboxAction", menuName = "AF/Combat/Melee Hitbox Action")]
+  public sealed class MeleeHitboxAction : CombatAction
+  {
+    [Header("Melee")]
+    public int damage = 15;
+
+    [Header("Animation")]
+    [Tooltip("Animator state name, e.g. Action_LightAttack_01")]
+    public string animationStateName = "Action_LightAttack_01";
+
+    public override void Begin(CombatExecution ctx)
     {
-        [Header("Melee")]
-        public int damage = 15;
+      if (ctx.Hitbox != null)
+      {
+        ctx.Hitbox.ConfigureDamage(damage);
+      }
 
-        [Header("Presentation")]
-        public string animationName = "LightAttack1";
+      if (ctx.Animator == null
+          || !ctx.Animator.TryPlayState(Animator.StringToHash(animationStateName), useRootMotion: true))
+      {
+        ctx.Controller.CancelActiveAction();
+        return;
+      }
 
-        public override void Begin(CombatExecution ctx)
-        {
-            if (ctx.Hitbox == null)
-            {
-                return;
-            }
-
-            if (ctx.Animator == null
-                || !ctx.Animator.TryPlayState(Animator.StringToHash(animationName), useRootMotion: true))
-            {
-                return;
-            }
-
-            ctx.Hitbox.ConfigureDamage(damage);
-            ctx.Hitbox.BeginSwing();
-            ctx.Controller.SetActionTimer(0f);
-        }
-
-        public override void Tick(CombatExecution ctx, float deltaTime) { }
-
-        public override void End(CombatExecution ctx)
-        {
-            ctx.Hitbox?.EndSwing();
-        }
+      // Hitbox open/close via CombatAnimationEvents clip events.
     }
+
+    public override void Tick(CombatExecution ctx, float deltaTime) { }
+
+    public override void End(CombatExecution ctx)
+    {
+      ctx.Hitbox?.EndSwing();
+    }
+  }
 }

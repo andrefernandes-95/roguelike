@@ -706,10 +706,9 @@ namespace AF.Combat
 
             if (!ctx.Animator.TryPlayState(state, useRootMotion: true))
             {
+                ctx.Controller.CancelActiveAction();
                 return;
             }
-
-            ctx.Controller.SetActionTimer(0f);
         }
 
         public override void Tick(CombatExecution ctx, float deltaTime) { }
@@ -736,13 +735,13 @@ public int animatorStateHash;
 
 public override void Begin(CombatExecution ctx)
 {
+    ctx.Hitbox?.ConfigureDamage(damage);
+
     if (ctx.Animator == null || !ctx.Animator.TryPlayState(animatorStateHash, useRootMotion: true))
     {
+        ctx.Controller.CancelActiveAction();
         return;
     }
-
-    ctx.Hitbox?.ConfigureDamage(damage);
-    ctx.Controller.SetActionTimer(0f);
 }
 ```
 
@@ -750,40 +749,10 @@ Hitbox open/close via clip events only.
 
 ### `CombatAnimationEvents.cs` (`AF.Combat`, on model child)
 
-`AF.Character` does **not** reference `AF.Combat`. Hitbox clip events live in Combat:
+`AF.Character` does **not** reference `AF.Combat`. Hitbox clip events live in Combat.  
+**Full code + `NotifyActionAnimationComplete` on `CombatController`:** [combat-minimum-v2.md Part E](combat-minimum-v2.md#part-e--animation-driven-action-completion).
 
-```csharp
-using AF.Core;
-using UnityEngine;
-
-namespace AF.Combat
-{
-    public sealed class CombatAnimationEvents : MonoBehaviour
-    {
-        [SerializeField] Hitbox attackHitbox;
-        [SerializeField] CombatController combat;
-
-        IActionAnimator actionAnimator;
-
-        void Awake()
-        {
-            if (combat == null) combat = GetComponentInParent<CombatController>();
-            actionAnimator = GetComponentInParent<IActionAnimator>();
-        }
-
-        public void OnHitboxOpen() => attackHitbox?.BeginSwing();
-        public void OnHitboxClose() => attackHitbox?.EndSwing();
-        public void OnDodgeIframesBegin() { }
-        public void OnDodgeIframesEnd() { }
-
-        public void OnActionComplete()
-        {
-            actionAnimator?.OnActionComplete();
-            combat?.NotifyActionAnimationComplete();
-        }
-    }
-}
-```
+Summary: clip event `OnActionComplete` calls `IActionAnimator.OnActionComplete()` and `IActionPresentationComplete.OnActionPresentationComplete()` (implemented by `CombatController`).
 
 ### `ResetCharacterStateOnEnter.cs` (SMB)
 
@@ -796,15 +765,21 @@ namespace AF.Character
     public sealed class ResetCharacterStateOnEnter : StateMachineBehaviour
     {
         IActionAnimator actionAnimator;
+        IActionPresentationComplete presentationComplete;
 
         public override void OnStateEnter(Animator animator, AnimatorStateInfo stateInfo, int layerIndex)
         {
             actionAnimator ??= animator.GetComponentInParent<IActionAnimator>();
+            presentationComplete ??= animator.GetComponentInParent<IActionPresentationComplete>();
+
             actionAnimator?.OnActionComplete();
+            presentationComplete?.OnActionPresentationComplete();
         }
     }
 }
 ```
+
+See [combat-minimum-v2.md Part E](combat-minimum-v2.md#part-e--animation-driven-action-completion) for `IActionPresentationComplete` and `CombatController.NotifyActionAnimationComplete`.
 
 ### `PlayerCombatInput.cs` (player adapter — attack + dodge)
 

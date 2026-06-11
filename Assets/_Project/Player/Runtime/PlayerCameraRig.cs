@@ -10,7 +10,6 @@ namespace AF.Player
 
         [Header("Orbit")]
         [SerializeField] float distance = 4f;
-        [SerializeField] float height = 2f;
         [SerializeField] float focusHeight = 1.5f;
         [SerializeField] float lookSensitivity = 0.15f;
         [SerializeField] float minPitch = -30f;
@@ -31,6 +30,10 @@ namespace AF.Player
         public float YawDegrees => yaw;
         public Transform Target => target;
 
+        void Awake()
+        {
+            currentDistance = distance;
+        }
 
         // Run after player movement has been processed in Update()
         // So we have the updated position to work with
@@ -55,14 +58,14 @@ namespace AF.Player
 
         void ApplyTransform()
         {
+            // Pure yaw-then-pitch orbit — position along camera back axis so rotation
+            // matches aim. Avoids LookAt gimbal flip when pitch is clamped at the limit.
             Quaternion rotation = Quaternion.Euler(pitch, yaw, 0f);
             Vector3 focus = target.position + Vector3.up * focusHeight;
+            Vector3 orbitBack = rotation * Vector3.back;
+            float castLength = distance;
 
-            Vector3 desiredOffset = rotation * new Vector3(0f, height, -distance);
-            Vector3 desiredPosition = focus + desiredOffset;
-
-            Vector3 castDirection = (desiredPosition - focus).normalized;
-            float castLength = desiredOffset.magnitude;
+            Vector3 castDirection = orbitBack;
 
             float targetDistance = castLength;
             if (Physics.SphereCast(
@@ -86,9 +89,8 @@ namespace AF.Player
                 Time.deltaTime
             );
 
-            Vector3 offset = castDirection * currentDistance;
-            transform.position = focus + offset;
-            transform.LookAt(focus);
+            transform.position = focus + castDirection * currentDistance;
+            transform.rotation = rotation;
         }
 
         public void SetCameraEnabled(bool enabled)

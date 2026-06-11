@@ -24,6 +24,8 @@ GameObject:
   - component: {fileID: 5442293994111911242}
   - component: {fileID: 1512942965050416223}
   - component: {fileID: 8149631874393331535}
+  - component: {fileID: 8192680473745685250}
+  - component: {fileID: 509007744054658478}
   m_Layer: 0
   m_Name: Player
   m_TagString: Player
@@ -283,6 +285,33 @@ MonoBehaviour:
   motor: {fileID: 6070374488140654078}
   driver: {fileID: 5442293994111911242}
   dampTime: 0.1
+--- !u!114 &8192680473745685250
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3538676543192954808}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fcf8928944e92bd44b15a540329e6240, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: AF.Combat::AF.Combat.PlayerCombatInput
+  combat: {fileID: 5445643823543602592}
+  lightAttack: {fileID: 11400000, guid: 33dc6d4cbf2f0e6429f1b2f31e6937ee, type: 2}
+--- !u!114 &509007744054658478
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3538676543192954808}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9db712666b1eb454eae8dc8051a7b65f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: AF.Combat::AF.Combat.CombatAnimationEvents
+  attackHitbox: {fileID: 0}
 --- !u!1001 &773998850811086423
 PrefabInstance:
   m_ObjectHideFlags: 0

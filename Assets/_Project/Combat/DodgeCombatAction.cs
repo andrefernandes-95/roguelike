@@ -23,6 +23,7 @@ namespace AF.Combat
         {
             if (ctx.Animator == null || ctx.Locomotion == null)
             {
+                ctx.Controller.CancelActiveAction();
                 return;
             }
 
@@ -32,10 +33,9 @@ namespace AF.Combat
                 : HumanoidAnimationHashes.StateRoll;
             if (!ctx.Animator.TryPlayState(state, useRootMotion: true))
             {
+                ctx.Controller.CancelActiveAction();
                 return;
             }
-
-            ctx.Controller.SetActionTimer(0f);
         }
 
         public override void Tick(CombatExecution ctx, float deltaTime)
