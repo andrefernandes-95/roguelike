@@ -1,3 +1,4 @@
+using AF.Animation;
 using AF.Core;
 
 namespace AF.Combat
@@ -9,7 +10,7 @@ namespace AF.Combat
         public Hitbox Hitbox { get; }
         public IActionAnimator Animator { get; }
         public ILocomotionReadout Locomotion { get; }
-        public PresentationScheduler Scheduler { get; }
+        public IPresentationPlayback Presentation { get; }
 
         public CombatExecution(
             CombatController controller,
@@ -17,14 +18,14 @@ namespace AF.Combat
             Hitbox hitbox,
             IActionAnimator actionAnimator,
             ILocomotionReadout locomotionReadout,
-            PresentationScheduler scheduler)
+            IPresentationPlayback presentation)
         {
             Controller = controller;
             Actor = actor;
             Hitbox = hitbox;
             Animator = actionAnimator;
             Locomotion = locomotionReadout;
-            Scheduler = scheduler;
+            Presentation = presentation;
         }
     }
 }

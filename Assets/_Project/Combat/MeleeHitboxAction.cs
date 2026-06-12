@@ -10,11 +10,11 @@ namespace AF.Combat
         public int damage = 15;
 
         [Header("Animation")]
-        [Tooltip("Animator state name, e.g. Action_LightAttack_01")]
+        [Tooltip("Animator state name — same for all clip variations.")]
         public string animationStateName = "Action_LightAttack_01";
 
-        [Header("Components")]
-        public AnimationPresentationSchedule presentation;
+        [Tooltip("Per-clip frame cues for every light attack 01 variation.")]
+        public AnimationPresentationMap presentationMap;
 
         public override void Begin(CombatExecution ctx)
         {
@@ -26,20 +26,18 @@ namespace AF.Combat
             if (ctx.Animator == null
                 || !ctx.Animator.TryPlayState(Animator.StringToHash(animationStateName), useRootMotion: true))
             {
-
-                ctx.Scheduler?.StartSchedule(presentation);
                 ctx.Controller.CancelActiveAction();
                 return;
             }
 
-            // Hitbox open/close via CombatAnimationEvents clip events.
+            ctx.Presentation?.StartMap(presentationMap);
         }
 
         public override void Tick(CombatExecution ctx, float deltaTime) { }
 
         public override void End(CombatExecution ctx)
         {
-            ctx.Scheduler?.StopSchedule();
+            ctx.Presentation?.StopMap();
             ctx.Hitbox?.EndSwing();
         }
     }

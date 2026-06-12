@@ -1,3 +1,4 @@
+using AF.Animation;
 using AF.Character;
 using UnityEngine;
 
@@ -6,8 +7,9 @@ namespace AF.Combat
     [CreateAssetMenu(fileName = "DodgeCombatAction", menuName = "AF/Combat/Dodge Action")]
     public sealed class DodgeCombatAction : CombatAction
     {
-        [Header("Rules")]
-        public float cooldown = 0.5f;
+        [Header("Animation")]
+        public AnimationPresentationMap rollPresentationMap;
+        public AnimationPresentationMap backstepPresentationMap;
 
         public override bool CanExecute(CombatExecution ctx)
         {
@@ -31,19 +33,22 @@ namespace AF.Combat
             int state = backstep
                 ? HumanoidAnimationHashes.StateBackStep
                 : HumanoidAnimationHashes.StateRoll;
+
             if (!ctx.Animator.TryPlayState(state, useRootMotion: true))
             {
                 ctx.Controller.CancelActiveAction();
                 return;
             }
+
+            AnimationPresentationMap map = backstep ? backstepPresentationMap : rollPresentationMap;
+            ctx.Presentation?.StartMap(map);
         }
 
-        public override void Tick(CombatExecution ctx, float deltaTime)
-        {
-        }
+        public override void Tick(CombatExecution ctx, float deltaTime) { }
 
         public override void End(CombatExecution ctx)
         {
+            ctx.Presentation?.StopMap();
         }
     }
 }

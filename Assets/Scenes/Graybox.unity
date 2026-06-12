@@ -319,7 +319,6 @@ MonoBehaviour:
   target: {fileID: 0}
   input: {fileID: 0}
   distance: 2.5
-  height: 1.5
   focusHeight: 1.5
   lookSensitivity: 0.15
   minPitch: -30

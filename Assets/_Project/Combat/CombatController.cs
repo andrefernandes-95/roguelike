@@ -1,3 +1,4 @@
+using AF.Animation;
 using AF.Core;
 using UnityEngine;
 
@@ -11,7 +12,6 @@ namespace AF.Combat
     {
         [SerializeField] CombatActor actor;
         [SerializeField] Hitbox hitbox;
-        [SerializeField] PresentationScheduler scheduler;
 
         CombatExecution execution;
         CombatAction activeAction;
@@ -20,13 +20,14 @@ namespace AF.Combat
         {
             IActionAnimator actionAnimator = GetComponent<IActionAnimator>();
             ILocomotionReadout locomotionReadout = GetComponent<ILocomotionReadout>();
+            IPresentationPlayback presentation = GetComponent<IPresentationPlayback>();
             execution = new CombatExecution(
               this,
               actor,
               hitbox,
               actionAnimator,
               locomotionReadout,
-              scheduler);
+              presentation);
         }
 
         void Update()
@@ -69,9 +70,6 @@ namespace AF.Combat
             EndActiveAction();
         }
 
-        /// <summary>
-        /// Called by CombatAnimationEvents clip events.
-        /// </summary>
         public void NotifyActionAnimationComplete()
         {
             OnActionPresentationComplete();

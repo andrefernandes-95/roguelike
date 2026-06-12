@@ -15,4 +15,5 @@ MonoBehaviour:
   staminaCost: 0
   next: {fileID: 0}
   damage: 15
-  animationName: LightAttack1
+  animationStateName: LightAttack1
+  presentationMap: {fileID: 11400000, guid: de931819cb636b34e804f7c03268a98c, type: 2}

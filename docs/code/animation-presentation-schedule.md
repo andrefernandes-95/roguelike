@@ -1,351 +1,67 @@
-# Animation presentation schedule (no clip events)
+# Animation presentation map (per clip, no clip events)
 
-Fire gameplay cues at **frame numbers** from small ScriptableObjects — do not add `AnimationEvent` to commercial clips.
+One **animator state** (e.g. `Action_LightAttack_01`), **many clip variations** (unarmed, sword, … via override).  
+Each **clip** has its own frame → event list. Runtime uses **whatever clip is playing**.
 
-**Three types total:** schedule SO, scheduler MonoBehaviour, hooks MonoBehaviour. No receiver interfaces, no catalog SO, no clip cloning.
+This system lives entirely in **`AF.Animation`**. Combat, footsteps, and future VFX subscribe as listeners — they do not own the scheduler.
 
-**Replaces:** `CombatAnimationEvents` (delete after migration).
+## Data
 
----
-
-## Files (all in `AF.Combat` — lives on character prefab next to `CombatController`)
-
-```
-Assets/_Project/Combat/
-├── AnimationPresentationSchedule.cs
-├── PresentationScheduler.cs
-├── CharacterPresentationHooks.cs
-├── MeleeHitboxAction.cs          ← presentation field + StartSchedule
-├── DodgeCombatAction.cs
-└── CombatExecution.cs            ← Scheduler ref
-```
-
-Delete `CombatAnimationEvents.cs`.
-
----
-
-### `AnimationPresentationSchedule.cs`
-
-```csharp
-using System;
-using UnityEngine;
-
-namespace AF.Combat
-{
-    public enum PresentationCueType
-    {
-        HitboxOpen,
-        HitboxClose,
-        DodgeIframesBegin,
-        DodgeIframesEnd,
-        ActionComplete,
-        FootstepLeft,
-        FootstepRight,
-    }
-
-    [Serializable]
-    public struct PresentationCue
-    {
-        [Tooltip("Frame in the clip when this fires (0 = start of clip).")]
-        public int frame;
-
-        public PresentationCueType type;
-    }
-
-    [CreateAssetMenu(fileName = "PresentationSchedule", menuName = "AF/Character/Presentation Schedule")]
-    public sealed class AnimationPresentationSchedule : ScriptableObject
-    {
-        public PresentationCue[] cues;
-    }
-}
-```
-
-**Authoring:** scrub the clip in Unity, read the **frame number** from the timeline, type it in.  
-Example light attack: frame **10** open, frame **17** close, frame **30** complete (on a 30 fps clip).
-
----
-
-### `CharacterPresentationHooks.cs`
-
-One component on the character root. Direct methods — no interfaces.
-
-```csharp
-using AF.Combat;
-using AF.Core;
-using UnityEngine;
-
-namespace AF.Combat
-{
-    public sealed class CharacterPresentationHooks : MonoBehaviour
-    {
-        [Header("Combat")]
-        [SerializeField] Hitbox attackHitbox;
-
-        [Header("Footsteps")]
-        [SerializeField] AudioSource footstepSource;
-        [SerializeField] AudioClip leftFootstep;
-        [SerializeField] AudioClip rightFootstep;
-
-        IActionAnimator actionAnimator;
-        IActionPresentationComplete presentationComplete;
-
-        void Awake()
-        {
-            actionAnimator = GetComponent<IActionAnimator>();
-            presentationComplete = GetComponent<IActionPresentationComplete>();
-        }
-
-        public void Fire(PresentationCueType type)
-        {
-            switch (type)
-            {
-                case PresentationCueType.HitboxOpen:
-                    attackHitbox?.BeginSwing();
-                    break;
-                case PresentationCueType.HitboxClose:
-                    attackHitbox?.EndSwing();
-                    break;
-                case PresentationCueType.DodgeIframesBegin:
-                    break;
-                case PresentationCueType.DodgeIframesEnd:
-                    break;
-                case PresentationCueType.ActionComplete:
-                    actionAnimator?.OnActionComplete();
-                    presentationComplete?.OnActionPresentationComplete();
-                    break;
-                case PresentationCueType.FootstepLeft:
-                    PlayFootstep(leftFootstep);
-                    break;
-                case PresentationCueType.FootstepRight:
-                    PlayFootstep(rightFootstep);
-                    break;
-            }
-        }
-
-        void PlayFootstep(AudioClip clip)
-        {
-            if (footstepSource != null && clip != null)
-            {
-                footstepSource.PlayOneShot(clip);
-            }
-        }
-    }
-}
-```
-
----
-
-### `PresentationScheduler.cs`
-
-```csharp
-using UnityEngine;
-
-namespace AF.Combat
-{
-    [System.Serializable]
-    public struct LocomotionScheduleBinding
-    {
-        public string animatorStateName;
-        public AnimationPresentationSchedule schedule;
-    }
-
-    public sealed class PresentationScheduler : MonoBehaviour
-    {
-        [SerializeField] Animator animator;
-        [SerializeField] int layer;
-        [SerializeField] CharacterPresentationHooks hooks;
-        [SerializeField] LocomotionScheduleBinding[] locomotionSchedules;
-
-        AnimationPresentationSchedule activeSchedule;
-        int firedMask;
-        int lastFrame = -1;
-
-        public void StartSchedule(AnimationPresentationSchedule schedule)
-        {
-            activeSchedule = schedule;
-            firedMask = 0;
-            lastFrame = -1;
-        }
-
-        public void StopSchedule()
-        {
-            activeSchedule = null;
-            firedMask = 0;
-            lastFrame = -1;
-        }
-
-        void Update()
-        {
-            if (animator == null || hooks == null)
-            {
-                return;
-            }
-
-            AnimationPresentationSchedule schedule = activeSchedule;
-            if (schedule == null)
-            {
-                schedule = ResolveLocomotionSchedule();
-                if (schedule == null)
-                {
-                    return;
-                }
-            }
-
-            if (!TryGetCurrentFrame(out int currentFrame, out bool looped))
-            {
-                return;
-            }
-
-            if (looped)
-            {
-                firedMask = 0;
-            }
-
-            lastFrame = currentFrame;
-            FireDueCues(schedule, currentFrame);
-
-        }
-
-        AnimationPresentationSchedule ResolveLocomotionSchedule()
-        {
-            int hash = animator.GetCurrentAnimatorStateInfo(layer).shortNameHash;
-            for (int i = 0; i < locomotionSchedules.Length; i++)
-            {
-                if (Animator.StringToHash(locomotionSchedules[i].animatorStateName) == hash)
-                {
-                    return locomotionSchedules[i].schedule;
-                }
-            }
-
-            return null;
-        }
-
-        bool TryGetCurrentFrame(out int frame, out bool looped)
-        {
-            frame = 0;
-            looped = false;
-
-            AnimatorClipInfo[] clips = animator.GetCurrentAnimatorClipInfo(layer);
-            if (clips.Length == 0)
-            {
-                return false;
-            }
-
-            AnimationClip clip = clips[0].clip;
-            if (clip == null)
-            {
-                return false;
-            }
-
-            float normalizedTime = animator.GetCurrentAnimatorStateInfo(layer).normalizedTime;
-            float timeInClip = (normalizedTime - Mathf.Floor(normalizedTime)) * clip.length;
-            frame = Mathf.FloorToInt(timeInClip * clip.frameRate);
-            looped = activeSchedule == null && lastFrame >= 0 && frame < lastFrame;
-            return true;
-        }
-
-        void FireDueCues(AnimationPresentationSchedule schedule, int currentFrame)
-        {
-            PresentationCue[] cues = schedule.cues;
-            for (int i = 0; i < cues.Length; i++)
-            {
-                int bit = 1 << i;
-                if ((firedMask & bit) != 0)
-                {
-                    continue;
-                }
-
-                if (currentFrame < cues[i].frame)
-                {
-                    continue;
-                }
-
-                firedMask |= bit;
-                hooks.Fire(cues[i].type);
-
-                if (cues[i].type == PresentationCueType.ActionComplete && activeSchedule == schedule)
-                {
-                    StopSchedule();
-                }
-            }
-        }
-    }
-}
-```
-
-**Frame source:** current playing clip from `GetCurrentAnimatorClipInfo` × state normalized time. Author frames against that clip (or matching override with same length/fps).
-
----
-
-### `MeleeHitboxAction.cs` (add to `Begin`)
-
-```csharp
-public AnimationPresentationSchedule presentation;
-
-// after TryPlayState succeeds:
-ctx.Scheduler?.StartSchedule(presentation);
-```
-
-### `CombatExecution` + `CombatController.Awake`
-
-```csharp
-public PresentationScheduler Scheduler { get; }
-
-// Awake:
-Scheduler = GetComponent<PresentationScheduler>();
-execution = new CombatExecution(..., Scheduler);
-```
-
-### `End` on action
-
-```csharp
-ctx.Scheduler?.StopSchedule();
-ctx.Hitbox?.EndSwing();
-```
-
----
-
-## Assets
+`AnimationPresentationMap` (`AF.Animation`):
 
 ```
-Assets/Data/Character/Presentation/
-├── LightAttack_Unarmed.asset     frames: 10 Open, 17 Close, 30 Complete
-└── Walk_Footsteps.asset          frames: 5 Left, 15 Right
+entries[]
+  ├── clip: LightAttack01_Unarmed.fbx
+  │     cues: frame 10 HitboxOpen, frame 17 HitboxClose, frame 30 ActionComplete
+  ├── clip: LightAttack01_Sword.fbx
+  │     cues: frame 8 HitboxOpen, frame 14 HitboxClose, frame 28 ActionComplete
+  └── … one entry per clip variation
 ```
 
-Assign `presentation` on `LightAttack_Unarmed` combat SO.  
-Assign walk schedule on `PresentationScheduler` locomotion array (`stateName` = your walk state).
+Each cue: `{ int frame, string eventName }`. Use `PresentationEventNames` for common ids or any custom string.
 
----
+Lookup: `TryGetCues(playingClip)` — reference match, then clip **name**.
 
-## Hierarchy
+## Runtime
 
-```
-CharacterRoot
-├── CombatController
-├── CharacterAnimationDriver
-├── PresentationScheduler
-├── CharacterPresentationHooks
-└── Model → Animator
-```
+1. Something calls `IPresentationPlayback.StartMap(map)` (e.g. a combat action on begin).
+2. Each frame `PresentationScheduler` reads `GetCurrentAnimatorClipInfo(layer).clip`.
+3. Finds that clip's entry, dispatches `eventName` to all `IAnimationPresentationListener` on this object and children.
+4. Clip changes → reset fired mask. `ActionComplete` on an active one-shot map → `StopMap()`.
 
-Delete `CombatAnimationEvents`. Remove clip events from FBX.
+**Locomotion** maps run automatically when the animator is in a bound state (no `StartMap`).
 
----
+## Files (`AF.Animation`)
 
-## Checklist
+- `AnimationPresentationMap.cs` — clip → frame cues
+- `PresentationEventNames.cs` — shared event id constants
+- `PresentationScheduler.cs` — polls frames, dispatches events
+- `IAnimationPresentationListener.cs` — subscribe per domain
+- `IPresentationPlayback.cs` — start/stop one-shot maps
 
-- [ ] Schedule SOs authored with **frame** numbers
-- [ ] Scheduler + hooks on character
-- [ ] Combat actions call `StartSchedule`
-- [ ] Walk footsteps via locomotion array on scheduler
-- [ ] `CombatAnimationEvents` deleted
+## Listeners (examples)
 
----
+| Assembly | Component | Handles |
+|----------|-----------|---------|
+| `AF.Combat` | `CombatPresentationListener` | HitboxOpen, HitboxClose, dodge iframes |
+| `AF.Character` | `CharacterPresentationListener` | ActionComplete, FootstepLeft/Right |
 
-## What we are not building
+Add more listeners for VFX, audio, etc. without touching combat or the scheduler.
 
-- `IPresentationEventReceiver` / multiple receiver components
-- Separate catalog ScriptableObject
-- Normalized-time authoring
-- Runtime clip event injection
+## Character setup
+
+On the character root (or children):
+
+1. `PresentationScheduler` — assign Animator, locomotion bindings for walk/run clips.
+2. `CharacterPresentationListener` — footstep audio, action-complete hooks.
+3. `CombatPresentationListener` — hitbox reference (if this character fights).
+
+Combat actions reference `AnimationPresentationMap` assets and call `ctx.Presentation.StartMap(map)` — they do not embed presentation logic.
+
+## Authoring
+
+1. Create **AF → Animation → Presentation Map**.
+2. Add one **entry per clip variation**; author **frame numbers** and **event names** on that clip.
+3. Assign map on combat action assets and/or locomotion bindings on the scheduler.
+
+Recreate any old `PresentationSchedule` assets as **Presentation Map** (string event names, not enum).

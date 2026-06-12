@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Events;
 
 namespace AF.Combat
 {
@@ -7,6 +8,8 @@ namespace AF.Combat
     public sealed class Hitbox : MonoBehaviour
     {
         [SerializeField] Transform ownerRoot;
+        [SerializeField] UnityEvent onBeginSwing;
+        [SerializeField] UnityEvent onEndSwing;
 
         int damage;
         readonly HashSet<Hurtbox> hitThisSwing = new();
@@ -20,11 +23,13 @@ namespace AF.Combat
         {
             hitThisSwing.Clear();
             gameObject.SetActive(true);
+            onBeginSwing?.Invoke();
         }
 
         public void EndSwing()
         {
             hitThisSwing.Clear();
+            onEndSwing?.Invoke();
             gameObject.SetActive(false);
         }
 
