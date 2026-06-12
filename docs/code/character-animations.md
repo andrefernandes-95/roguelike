@@ -750,9 +750,9 @@ Hitbox open/close via clip events only.
 ### `CombatAnimationEvents.cs` (`AF.Combat`, on model child)
 
 `AF.Character` does **not** reference `AF.Combat`. Hitbox clip events live in Combat.  
-**Full code + `NotifyActionAnimationComplete` on `CombatController`:** [combat-minimum-v2.md Part E](combat-minimum-v2.md#part-e--animation-driven-action-completion).
+**Preferred (no clip events):** [animation-presentation-schedule.md](animation-presentation-schedule.md) — schedule SO + `PresentationScheduler` + receivers (combat + footsteps).
 
-Summary: clip event `OnActionComplete` calls `IActionAnimator.OnActionComplete()` and `IActionPresentationComplete.OnActionPresentationComplete()` (implemented by `CombatController`).
+**Legacy clip events:** [combat-minimum-v2.md Part E](combat-minimum-v2.md#part-e--animation-driven-action-completion) — `CombatAnimationEvents` on model child.
 
 ### `ResetCharacterStateOnEnter.cs` (SMB)
 

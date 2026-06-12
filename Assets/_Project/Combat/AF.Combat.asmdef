@@ -5,7 +5,8 @@
     "AF.Core",
     "AF.Stats",
     "AF.Player",
-    "AF.Character"
+    "AF.Character",
+    "AF.Animation"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],

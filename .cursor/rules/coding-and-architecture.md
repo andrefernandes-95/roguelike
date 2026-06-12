@@ -41,6 +41,7 @@ Agents **must challenge** proposals (user’s or their own) when they repeat Cac
 - Stats/attributes/equipment modeled as **two modifier systems**
 - “Jam shortcut” / “we’ll refactor later” for **core** systems (combat, stats, saves, input)
 - Porting Cacildes class names or structure “because it worked there”
+- Extra abstraction layers (receiver interfaces, registries, normalized-time authoring) when direct code + SO fields work
 
 **Instead, propose:**
 
@@ -110,6 +111,24 @@ Write for your **dumber future self** at 2 AM before a build.
 **The slice test:** Only **implement** what the current milestone needs — but **design** types and boundaries for the full game. No architectural dead ends.
 
 **The Cacildes test:** Before porting a pattern, name what was wrong in the original and what replaces it here.
+
+**The direct code test:** Prefer the obvious implementation. If a design needs a diagram to justify it, simplify first.
+
+### No excess abstraction (§3b)
+
+Clean architecture ≠ many layers. **Do not over-engineer.**
+
+| Do | Don't |
+|----|--------|
+| Direct calls, serialized refs, one obvious component | Interface + factory + registry when one class suffices |
+| Data in SO fields designers can edit | Frameworks that “could support anything” |
+| Add abstraction when you have **two real callers** | Layers “for the future” with one use case |
+| `switch` on enum in one hooks class | Receiver/strategy/handler chains for 3 events |
+| Frame numbers in schedule assets | Normalized time authors must calculate by hand |
+
+**Push back** when a doc or PR adds: extra interfaces, catalogs, dictionaries, or indirection that does not remove duplication **today**.
+
+Agents must propose the **smallest** design that meets the slice — same as dungeon solver, not enterprise patterns.
 
 ---
 
@@ -759,4 +778,4 @@ Before delivering `docs/code/*.md` for locomotion, animation, or combat presenta
 
 ---
 
-_Last updated: character-agnostic body (§8), `AF.Character` asmdef, agent pushback (§1b). User writes code from `docs/code/` (§2). Tests in `Feature/Tests/` (§16). Mirror: `agent.md`._
+_Last updated: character-agnostic body (§8), no excess abstraction (§3b), agent pushback (§1b). User writes code from `docs/code/` (§2). Mirror: `agent.md`._

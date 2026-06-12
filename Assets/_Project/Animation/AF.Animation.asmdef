@@ -1,9 +1,8 @@
 {
-  "name": "AF.Character",
-  "rootNamespace": "AF.Character",
+  "name": "AF.Animation",
+  "rootNamespace": "AF.Animation",
   "references": [
-    "AF.Core",
-    "AF.Animation"
+    "AF.Core"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],
