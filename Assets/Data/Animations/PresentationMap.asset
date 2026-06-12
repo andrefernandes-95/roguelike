@@ -15,7 +15,7 @@ MonoBehaviour:
   entries:
   - clip: {fileID: 7743820057955227385, guid: cd27b044584c25e4d8f0cf1d2d12845e, type: 3}
     cues:
-    - frame: 15
+    - frame: 12
       eventName: HitboxOpen
-    - frame: 32
-      eventName: HitboxEnd
+    - frame: 22
+      eventName: HitboxClose
