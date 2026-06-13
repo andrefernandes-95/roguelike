@@ -19,3 +19,5 @@ MonoBehaviour:
       eventName: HitboxOpen
     - frame: 22
       eventName: HitboxClose
+    - frame: 36
+      eventName: ActionComplete

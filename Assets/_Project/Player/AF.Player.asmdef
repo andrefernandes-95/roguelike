@@ -4,6 +4,7 @@
   "references": [
     "AF.Core",
     "AF.Character",
+    "AF.Combat",
     "Unity.InputSystem"
   ],
   "includePlatforms": [],

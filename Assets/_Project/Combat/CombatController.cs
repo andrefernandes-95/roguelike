@@ -6,9 +6,9 @@ namespace AF.Combat
 {
     /// <summary>
     /// Shared combat executor for player and AI. Does not read input.
-    /// Actions end via animation clip events or locomotion hub SMB — not timers.
+    /// Actions end via presentation ActionComplete or locomotion hub SMB — not timers.
     /// </summary>
-    public sealed class CombatController : MonoBehaviour, IActionPresentationComplete
+    public sealed class CombatController : MonoBehaviour, IActionPresentationComplete, IAnimationPresentationListener
     {
         [SerializeField] CombatActor actor;
         [SerializeField] Hitbox hitbox;
@@ -20,7 +20,7 @@ namespace AF.Combat
         {
             IActionAnimator actionAnimator = GetComponent<IActionAnimator>();
             ILocomotionReadout locomotionReadout = GetComponent<ILocomotionReadout>();
-            IPresentationPlayback presentation = GetComponent<IPresentationPlayback>();
+            PresentationScheduler presentation = GetComponent<PresentationScheduler>();
             execution = new CombatExecution(
               this,
               actor,
@@ -57,9 +57,6 @@ namespace AF.Combat
             return IsBusy;
         }
 
-        /// <summary>
-        /// Called when Begin fails (e.g. animator could not play state).
-        /// </summary>
         public void CancelActiveAction()
         {
             if (!IsBusy)
@@ -70,11 +67,6 @@ namespace AF.Combat
             EndActiveAction();
         }
 
-        public void NotifyActionAnimationComplete()
-        {
-            OnActionPresentationComplete();
-        }
-
         public void OnActionPresentationComplete()
         {
             if (!IsBusy)
@@ -83,6 +75,19 @@ namespace AF.Combat
             }
 
             EndActiveAction();
+        }
+
+        public void OnAnimationPresentationEvent(string eventName)
+        {
+            switch (eventName)
+            {
+                case PresentationEventNames.HitboxOpen:
+                    hitbox?.BeginSwing();
+                    break;
+                case PresentationEventNames.HitboxClose:
+                    hitbox?.EndSwing();
+                    break;
+            }
         }
 
         void EndActiveAction()

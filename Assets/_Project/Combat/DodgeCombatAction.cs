@@ -1,5 +1,4 @@
 using AF.Animation;
-using AF.Character;
 using UnityEngine;
 
 namespace AF.Combat
@@ -8,6 +7,8 @@ namespace AF.Combat
     public sealed class DodgeCombatAction : CombatAction
     {
         [Header("Animation")]
+        public string rollStateName = "Roll";
+        public string backstepStateName = "Backstep";
         public AnimationPresentationMap rollPresentationMap;
         public AnimationPresentationMap backstepPresentationMap;
 
@@ -30,9 +31,8 @@ namespace AF.Combat
             }
 
             bool backstep = ctx.Locomotion.MoveInput.sqrMagnitude < 0.01f;
-            int state = backstep
-                ? HumanoidAnimationHashes.StateBackStep
-                : HumanoidAnimationHashes.StateRoll;
+            string stateName = backstep ? backstepStateName : rollStateName;
+            int state = Animator.StringToHash(stateName);
 
             if (!ctx.Animator.TryPlayState(state, useRootMotion: true))
             {

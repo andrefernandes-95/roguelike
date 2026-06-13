@@ -4,8 +4,6 @@
   "references": [
     "AF.Core",
     "AF.Stats",
-    "AF.Player",
-    "AF.Character",
     "AF.Animation"
   ],
   "includePlatforms": [],

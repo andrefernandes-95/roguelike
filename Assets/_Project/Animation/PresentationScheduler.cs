@@ -13,7 +13,7 @@ namespace AF.Animation
     /// Polls the playing clip each frame and fires presentation events at authored frame numbers.
     /// Listeners implement <see cref="IAnimationPresentationListener"/> on this object or its children.
     /// </summary>
-    public sealed class PresentationScheduler : MonoBehaviour, IPresentationPlayback
+    public sealed class PresentationScheduler : MonoBehaviour
     {
         [SerializeField] Animator animator;
         [SerializeField] int layer;

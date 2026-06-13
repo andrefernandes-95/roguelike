@@ -10,7 +10,7 @@ namespace AF.Combat
         public Hitbox Hitbox { get; }
         public IActionAnimator Animator { get; }
         public ILocomotionReadout Locomotion { get; }
-        public IPresentationPlayback Presentation { get; }
+        public PresentationScheduler Presentation { get; }
 
         public CombatExecution(
             CombatController controller,
@@ -18,7 +18,7 @@ namespace AF.Combat
             Hitbox hitbox,
             IActionAnimator actionAnimator,
             ILocomotionReadout locomotionReadout,
-            IPresentationPlayback presentation)
+            PresentationScheduler presentation)
         {
             Controller = controller;
             Actor = actor;

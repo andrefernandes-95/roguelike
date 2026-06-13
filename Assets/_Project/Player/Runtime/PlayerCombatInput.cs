@@ -1,12 +1,15 @@
+using AF.Combat;
 using UnityEngine;
-using AF.Player;
 
-namespace AF.Combat
+namespace AF.Player
 {
+    /// <summary>Maps player intent → CombatController.TryStart.</summary>
     public sealed class PlayerCombatInput : MonoBehaviour
     {
         [SerializeField] CombatController combat;
         [SerializeField] MeleeHitboxAction lightAttack;
+        [SerializeField] DodgeCombatAction dodge;
+
         IPlayerIntentSource intentSource;
 
         void Awake()
@@ -16,14 +19,21 @@ namespace AF.Combat
 
         void Update()
         {
-            if (intentSource == null || combat == null || lightAttack == null)
+            if (intentSource == null || combat == null)
             {
                 return;
             }
 
-            if (intentSource.Intent.LightAttack)
+            PlayerIntent intent = intentSource.Intent;
+
+            if (intent.LightAttack && lightAttack != null)
             {
                 combat.TryStart(lightAttack);
+            }
+
+            if (intent.Dodge && dodge != null)
+            {
+                combat.TryStart(dodge);
             }
         }
     }

@@ -10,8 +10,7 @@ namespace AF.Player
     {
         [SerializeField] PlayerInputAdapter input;
         [SerializeField] CharacterMotor motor;
-
-        PlayerCameraRig cameraRig;
+        [SerializeField] PlayerCameraRig cameraRig;
 
         bool isEnabled;
 
@@ -20,7 +19,10 @@ namespace AF.Player
 
         void Awake()
         {
-            cameraRig = FindAnyObjectByType<PlayerCameraRig>(FindObjectsInactive.Include);
+            if (cameraRig == null)
+            {
+                cameraRig = FindFirstObjectByType<PlayerCameraRig>(FindObjectsInactive.Include);
+            }
         }
 
         void Update()

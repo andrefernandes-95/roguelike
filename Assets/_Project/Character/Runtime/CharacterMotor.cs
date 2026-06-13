@@ -4,11 +4,12 @@ using UnityEngine;
 namespace AF.Character
 {
     [RequireComponent(typeof(CharacterController))]
-    public sealed class CharacterMotor : MonoBehaviour, ILocomotionReadout
+    public sealed class CharacterMotor : MonoBehaviour
     {
         [SerializeField] CharacterLocomotionSettings settings;
         [SerializeField] CharacterAnimationDriver animationDriver;
         [SerializeField] CharacterController controller;
+        [SerializeField] CharacterLocomotionView locomotionView;
 
         Vector3 worldMoveDirection;
         float moveMagnitude;
@@ -81,7 +82,7 @@ namespace AF.Character
 
             verticalVelocity = LocomotionMath.ComputeJumpVelocity(settings.jumpHeight, settings.gravity);
             jumpTimeoutDelta = settings.jumpTimeout;
-            GetComponent<CharacterLocomotionView>()?.NotifyJumpTriggered();
+            locomotionView?.NotifyJumpTriggered();
         }
 
         void UpdateJumpTimeout()

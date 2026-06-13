@@ -9,17 +9,18 @@ namespace AF.Player
         [SerializeField] PlayerInputAdapter input;
         [SerializeField] PlayerLocomotionInput playerLocomotionInput;
         [SerializeField] CharacterMotor motor;
+        [SerializeField] PlayerCameraRig cameraRig;
 
-        PlayerCameraRig cameraRig;
         RunState lastState = RunState.Boot;
 
         void Awake()
         {
             if (cameraRig == null)
             {
-                cameraRig = FindAnyObjectByType<PlayerCameraRig>(FindObjectsInactive.Include);
-                cameraRig.Initialize(input);
+                cameraRig = FindFirstObjectByType<PlayerCameraRig>(FindObjectsInactive.Include);
             }
+
+            cameraRig?.Initialize(input);
         }
 
         void Start()
